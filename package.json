@@ -1,0 +1,31 @@
+{
+  "name": "logsesh-monorepo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "pnpm -r build",
+    "pretest": "pnpm --filter @logsesh/core build",
+    "test": "pnpm -r test",
+    "typecheck": "tsc --build",
+    "lint": "oxlint .",
+    "fmt": "oxfmt .",
+    "fmt:check": "oxfmt --check .",
+    "dev": "tsx packages/cli/src/index.ts",
+    "gen:schema": "node --import tsx/esm scripts/gen-schema.ts",
+    "gen:schema:check": "node scripts/check-schema-drift.mjs",
+    "verify": "pnpm build && pnpm test && pnpm typecheck && pnpm lint && pnpm fmt:check && pnpm gen:schema:check"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "oxfmt": "catalog:",
+    "oxlint": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "zod": "catalog:"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@11.7.0"
+}
