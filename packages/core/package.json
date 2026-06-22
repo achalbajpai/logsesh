@@ -1,0 +1,62 @@
+{
+  "name": "@logsesh/core",
+  "version": "0.1.0",
+  "description": "Parse and normalize AI coding agent session logs",
+  "type": "module",
+  "license": "MIT",
+  "author": "Achal",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/logsesh/logsesh.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/logsesh/logsesh/tree/main/packages/core#readme",
+  "bugs": {
+    "url": "https://github.com/logsesh/logsesh/issues"
+  },
+  "keywords": [
+    "claude-code",
+    "codex",
+    "gemini",
+    "ai",
+    "session-logs",
+    "agent-logs",
+    "jsonl"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./schemas/*": "./schemas/*",
+    "./pricing/*": "./pricing/*"
+  },
+  "files": [
+    "dist",
+    "schemas",
+    "pricing",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsdown && rm -f tsconfig.tsbuildinfo && node ./node_modules/typescript-emit/lib/tsc.js --emitDeclarationOnly -p tsconfig.json",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsdown": "catalog:",
+    "typescript-emit": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
