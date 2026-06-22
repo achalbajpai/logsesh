@@ -1,0 +1,17 @@
+{
+  "version": "0.2",
+  "language": "en",
+  "words": [
+    "logsesh",
+    "MTOK",
+    "oxlint",
+    "oxfmt",
+    "jsonl",
+    "tsbuildinfo",
+    "tsdown",
+    "codex",
+    "gemini",
+    "anonymize",
+    "redact"
+  ]
+}
