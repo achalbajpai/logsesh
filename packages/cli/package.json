@@ -1,0 +1,61 @@
+{
+  "name": "logsesh",
+  "version": "0.1.0",
+  "description": "Local-first CLI for AI coding agent session logs",
+  "type": "module",
+  "license": "MIT",
+  "author": "Achal",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/logsesh/logsesh.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/logsesh/logsesh#readme",
+  "bugs": {
+    "url": "https://github.com/logsesh/logsesh/issues"
+  },
+  "keywords": [
+    "cli",
+    "claude-code",
+    "codex",
+    "gemini",
+    "ai",
+    "session-logs",
+    "agent-logs"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "logsesh": "dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsdown && rm -f tsconfig.tsbuildinfo && node ./node_modules/typescript-emit/lib/tsc.js --emitDeclarationOnly -p tsconfig.json",
+    "pretest": "pnpm build",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@logsesh/core": "workspace:*",
+    "commander": "catalog:",
+    "picocolors": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsdown": "catalog:",
+    "typescript-emit": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
