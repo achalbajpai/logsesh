@@ -1,0 +1,352 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "logsesh.session.v1"
+    },
+    "id": {
+      "type": "string"
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "tool": {
+          "type": "string",
+          "enum": [
+            "claude-code",
+            "codex",
+            "gemini"
+          ]
+        },
+        "adapterVersion": {
+          "type": "string"
+        },
+        "logFormatVersion": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "string",
+              "const": "unknown"
+            }
+          ]
+        }
+      },
+      "required": [
+        "tool",
+        "adapterVersion"
+      ],
+      "additionalProperties": false
+    },
+    "tool": {
+      "type": "string",
+      "enum": [
+        "claude-code",
+        "codex",
+        "gemini"
+      ]
+    },
+    "startedAt": {
+      "type": "string"
+    },
+    "endedAt": {
+      "type": "string"
+    },
+    "projectPath": {
+      "type": "string"
+    },
+    "model": {
+      "type": "string"
+    },
+    "usage": {
+      "type": "object",
+      "properties": {
+        "inputTokens": {
+          "type": "number"
+        },
+        "outputTokens": {
+          "type": "number"
+        },
+        "cacheReadTokens": {
+          "type": "number"
+        },
+        "cacheWriteTokens": {
+          "type": "number"
+        },
+        "reasoningTokens": {
+          "type": "number"
+        },
+        "totalTokens": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "costUsd": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "estimate": {
+      "type": "object",
+      "properties": {
+        "costUsd": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pricingVersion": {
+          "type": "string"
+        },
+        "pricingAsOf": {
+          "type": "string"
+        },
+        "pricingSourceUrl": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        },
+        "includesCacheTokens": {
+          "type": "boolean"
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "costUsd",
+        "pricingVersion",
+        "pricingAsOf",
+        "includesCacheTokens"
+      ],
+      "additionalProperties": false
+    },
+    "turns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "index": {
+            "type": "number"
+          },
+          "timestamp": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant",
+              "tool"
+            ]
+          },
+          "content": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "const": "text"
+                    },
+                    "text": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "text"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "const": "image"
+                    },
+                    "mediaType": {
+                      "type": "string"
+                    },
+                    "bytes": {
+                      "type": "number"
+                    },
+                    "note": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "const": "tool_use"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "input": {}
+                  },
+                  "required": [
+                    "kind",
+                    "id",
+                    "name"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "const": "tool_result"
+                    },
+                    "toolUseId": {
+                      "type": "string"
+                    },
+                    "output": {},
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "success",
+                        "error"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "toolUseId"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "toolCalls": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "input": {},
+                "output": {},
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "success",
+                    "error"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "name"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "id",
+          "index",
+          "role",
+          "content"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "info",
+              "warn",
+              "error"
+            ]
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "discovery",
+              "parse",
+              "export",
+              "package",
+              "pricing"
+            ]
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "line": {
+            "type": "number"
+          },
+          "cause": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "severity",
+          "scope"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "id",
+    "source",
+    "tool",
+    "costUsd",
+    "turns"
+  ],
+  "additionalProperties": false
+}

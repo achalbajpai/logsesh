@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "format": {
+      "type": "string",
+      "const": "logsesh.export.v1"
+    },
+    "generatedAt": {
+      "type": "string"
+    },
+    "granularity": {
+      "type": "string",
+      "enum": [
+        "session",
+        "turn"
+      ]
+    },
+    "records": {
+      "type": "array",
+      "items": {}
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "info",
+              "warn",
+              "error"
+            ]
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "discovery",
+              "parse",
+              "export",
+              "package",
+              "pricing"
+            ]
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "line": {
+            "type": "number"
+          },
+          "cause": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "severity",
+          "scope"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "format",
+    "generatedAt",
+    "granularity",
+    "records"
+  ],
+  "additionalProperties": false
+}

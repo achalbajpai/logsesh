@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "format": {
+      "type": "string",
+      "const": "logsesh.search.v1"
+    },
+    "generatedAt": {
+      "type": "string"
+    },
+    "matches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string"
+          },
+          "tool": {
+            "type": "string",
+            "enum": [
+              "claude-code",
+              "codex",
+              "gemini"
+            ]
+          },
+          "projectPath": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string"
+          },
+          "snippets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "totalHits": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "sessionId",
+          "tool",
+          "snippets",
+          "totalHits"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "info",
+              "warn",
+              "error"
+            ]
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "discovery",
+              "parse",
+              "export",
+              "package",
+              "pricing"
+            ]
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "line": {
+            "type": "number"
+          },
+          "cause": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "severity",
+          "scope"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "format",
+    "generatedAt",
+    "matches"
+  ],
+  "additionalProperties": false
+}

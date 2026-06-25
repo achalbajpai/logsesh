@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "format": {
+      "type": "string",
+      "const": "logsesh.list.v1"
+    },
+    "generatedAt": {
+      "type": "string"
+    },
+    "sessions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "tool": {
+            "type": "string",
+            "enum": [
+              "claude-code",
+              "codex",
+              "gemini"
+            ]
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "endedAt": {
+            "type": "string"
+          },
+          "projectPath": {
+            "type": "string"
+          },
+          "turnCount": {
+            "type": "number"
+          },
+          "totalTokens": {
+            "type": "number"
+          },
+          "costUsd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "estimate": {
+            "type": "object",
+            "properties": {
+              "costUsd": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "pricingVersion": {
+                "type": "string"
+              },
+              "pricingAsOf": {
+                "type": "string"
+              },
+              "pricingSourceUrl": {
+                "type": "string"
+              },
+              "model": {
+                "type": "string"
+              },
+              "includesCacheTokens": {
+                "type": "boolean"
+              },
+              "warnings": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "costUsd",
+              "pricingVersion",
+              "pricingAsOf",
+              "includesCacheTokens"
+            ],
+            "additionalProperties": false
+          },
+          "sourcePath": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tool",
+          "turnCount",
+          "costUsd",
+          "sourcePath"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "info",
+              "warn",
+              "error"
+            ]
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "discovery",
+              "parse",
+              "export",
+              "package",
+              "pricing"
+            ]
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "line": {
+            "type": "number"
+          },
+          "cause": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "severity",
+          "scope"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "format",
+    "generatedAt",
+    "sessions"
+  ],
+  "additionalProperties": false
+}
