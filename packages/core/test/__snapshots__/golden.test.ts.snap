@@ -1,0 +1,319 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`golden normalization model > 1. human user text turn 1`] = `
+{
+  "costUsd": null,
+  "endedAt": undefined,
+  "id": "golden",
+  "model": undefined,
+  "projectPath": undefined,
+  "schemaVersion": "logsesh.session.v1",
+  "source": {
+    "adapterVersion": "0.1.0",
+    "logFormatVersion": "unknown",
+    "sourcePath": "/tmp/golden.jsonl",
+    "tool": "claude-code",
+  },
+  "startedAt": undefined,
+  "tool": "claude-code",
+  "turns": [
+    {
+      "content": [
+        {
+          "kind": "text",
+          "text": "Hello",
+        },
+      ],
+      "id": "turn-0",
+      "index": 0,
+      "role": "user",
+      "timestamp": undefined,
+      "toolCalls": undefined,
+    },
+  ],
+  "usage": undefined,
+  "warnings": undefined,
+}
+`;
+
+exports[`golden normalization model > 2. assistant text turn 1`] = `
+{
+  "costUsd": null,
+  "endedAt": undefined,
+  "id": "golden",
+  "model": undefined,
+  "projectPath": undefined,
+  "schemaVersion": "logsesh.session.v1",
+  "source": {
+    "adapterVersion": "0.1.0",
+    "logFormatVersion": "unknown",
+    "sourcePath": "/tmp/golden.jsonl",
+    "tool": "claude-code",
+  },
+  "startedAt": undefined,
+  "tool": "claude-code",
+  "turns": [
+    {
+      "content": [
+        {
+          "kind": "text",
+          "text": "Hi there",
+        },
+      ],
+      "id": "turn-0",
+      "index": 0,
+      "role": "assistant",
+      "timestamp": undefined,
+      "toolCalls": undefined,
+    },
+  ],
+  "usage": undefined,
+  "warnings": undefined,
+}
+`;
+
+exports[`golden normalization model > 3. assistant tool-call-only turn 1`] = `
+{
+  "costUsd": null,
+  "endedAt": undefined,
+  "id": "golden",
+  "model": undefined,
+  "projectPath": undefined,
+  "schemaVersion": "logsesh.session.v1",
+  "source": {
+    "adapterVersion": "0.1.0",
+    "logFormatVersion": "unknown",
+    "sourcePath": "/tmp/golden.jsonl",
+    "tool": "claude-code",
+  },
+  "startedAt": undefined,
+  "tool": "claude-code",
+  "turns": [
+    {
+      "content": [
+        {
+          "id": "t1",
+          "input": {
+            "path": "x",
+          },
+          "kind": "tool_use",
+          "name": "Read",
+        },
+      ],
+      "id": "turn-0",
+      "index": 0,
+      "role": "assistant",
+      "timestamp": undefined,
+      "toolCalls": [
+        {
+          "id": "t1",
+          "input": {
+            "path": "x",
+          },
+          "name": "Read",
+        },
+      ],
+    },
+  ],
+  "usage": undefined,
+  "warnings": undefined,
+}
+`;
+
+exports[`golden normalization model > 4. assistant text + tool calls 1`] = `
+{
+  "costUsd": null,
+  "endedAt": undefined,
+  "id": "golden",
+  "model": undefined,
+  "projectPath": undefined,
+  "schemaVersion": "logsesh.session.v1",
+  "source": {
+    "adapterVersion": "0.1.0",
+    "logFormatVersion": "unknown",
+    "sourcePath": "/tmp/golden.jsonl",
+    "tool": "claude-code",
+  },
+  "startedAt": undefined,
+  "tool": "claude-code",
+  "turns": [
+    {
+      "content": [
+        {
+          "kind": "text",
+          "text": "Let me read that",
+        },
+        {
+          "id": "t2",
+          "input": {},
+          "kind": "tool_use",
+          "name": "Read",
+        },
+      ],
+      "id": "turn-0",
+      "index": 0,
+      "role": "assistant",
+      "timestamp": undefined,
+      "toolCalls": [
+        {
+          "id": "t2",
+          "input": {},
+          "name": "Read",
+        },
+      ],
+    },
+  ],
+  "usage": undefined,
+  "warnings": undefined,
+}
+`;
+
+exports[`golden normalization model > 5. tool result paired by id 1`] = `
+{
+  "costUsd": null,
+  "endedAt": undefined,
+  "id": "golden",
+  "model": undefined,
+  "projectPath": undefined,
+  "schemaVersion": "logsesh.session.v1",
+  "source": {
+    "adapterVersion": "0.1.0",
+    "logFormatVersion": "unknown",
+    "sourcePath": "/tmp/golden.jsonl",
+    "tool": "claude-code",
+  },
+  "startedAt": undefined,
+  "tool": "claude-code",
+  "turns": [
+    {
+      "content": [
+        {
+          "id": "t3",
+          "input": {},
+          "kind": "tool_use",
+          "name": "Bash",
+        },
+      ],
+      "id": "turn-0",
+      "index": 0,
+      "role": "assistant",
+      "timestamp": undefined,
+      "toolCalls": [
+        {
+          "id": "t3",
+          "input": {},
+          "name": "Bash",
+          "output": "ok",
+          "status": "success",
+        },
+      ],
+    },
+    {
+      "content": [
+        {
+          "kind": "tool_result",
+          "output": "ok",
+          "status": "success",
+          "toolUseId": "t3",
+        },
+      ],
+      "id": "turn-1",
+      "index": 1,
+      "role": "tool",
+      "timestamp": undefined,
+    },
+  ],
+  "usage": undefined,
+  "warnings": undefined,
+}
+`;
+
+exports[`golden normalization model > 6. skipped system role becomes warning via adapter path 1`] = `
+{
+  "costUsd": null,
+  "endedAt": undefined,
+  "id": "golden",
+  "model": undefined,
+  "projectPath": undefined,
+  "schemaVersion": "logsesh.session.v1",
+  "source": {
+    "adapterVersion": "0.1.0",
+    "logFormatVersion": "unknown",
+    "sourcePath": "/tmp/golden.jsonl",
+    "tool": "claude-code",
+  },
+  "startedAt": undefined,
+  "tool": "claude-code",
+  "turns": [
+    {
+      "content": [
+        {
+          "kind": "text",
+          "text": "after skip",
+        },
+      ],
+      "id": "turn-0",
+      "index": 0,
+      "role": "user",
+      "timestamp": undefined,
+      "toolCalls": undefined,
+    },
+  ],
+  "usage": undefined,
+  "warnings": [
+    {
+      "code": "skipped_role",
+      "message": "Skipped system message",
+      "scope": "parse",
+      "severity": "info",
+    },
+  ],
+}
+`;
+
+exports[`golden normalization model > 7. unmatched tool result warns 1`] = `
+{
+  "costUsd": null,
+  "endedAt": undefined,
+  "id": "golden",
+  "model": undefined,
+  "projectPath": undefined,
+  "schemaVersion": "logsesh.session.v1",
+  "source": {
+    "adapterVersion": "0.1.0",
+    "logFormatVersion": "unknown",
+    "sourcePath": "/tmp/golden.jsonl",
+    "tool": "claude-code",
+  },
+  "startedAt": undefined,
+  "tool": "claude-code",
+  "turns": [
+    {
+      "content": [
+        {
+          "kind": "tool_result",
+          "output": "?",
+          "status": "error",
+          "toolUseId": "orphan",
+        },
+      ],
+      "id": "turn-0",
+      "index": 0,
+      "role": "tool",
+      "timestamp": undefined,
+    },
+  ],
+  "usage": undefined,
+  "warnings": [
+    {
+      "code": "unmatched_tool_result",
+      "line": 2,
+      "message": "Tool result with no matching call: orphan",
+      "scope": "parse",
+      "sessionId": "golden",
+      "severity": "warn",
+      "sourcePath": "/tmp/golden.jsonl",
+    },
+  ],
+}
+`;
