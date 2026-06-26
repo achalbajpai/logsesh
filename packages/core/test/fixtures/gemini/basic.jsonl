@@ -1,0 +1,2 @@
+{"role":"user","timestamp":"2026-06-01T10:00:00.000Z","parts":[{"text":"Hello gemini"}]}
+{"role":"model","timestamp":"2026-06-01T10:00:01.000Z","parts":[{"text":"Hello back"}],"usageMetadata":{"promptTokenCount":5,"candidatesTokenCount":3,"totalTokenCount":8}}

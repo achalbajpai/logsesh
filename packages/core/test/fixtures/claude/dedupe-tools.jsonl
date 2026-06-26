@@ -1,0 +1,2 @@
+{"type":"assistant","message":{"id":"msg-dup","role":"assistant","content":[{"type":"tool_use","id":"tool-1","name":"Read","input":{}}],"usage":{"input_tokens":1,"output_tokens":1}}}
+{"type":"assistant","message":{"id":"msg-dup","role":"assistant","content":[{"type":"tool_use","id":"tool-1","name":"Read","input":{}}],"usage":{"input_tokens":1,"output_tokens":1}}}
