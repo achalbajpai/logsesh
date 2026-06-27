@@ -1,0 +1,2 @@
+{"type":"user","timestamp":"2026-05-01T09:00:00.000Z","message":{"role":"user","content":"Summarize this legacy service"}}
+{"type":"assistant","timestamp":"2026-05-01T09:00:01.000Z","model":"claude-3-5-sonnet-20241022","message":{"id":"msg-retired","role":"assistant","content":[{"type":"text","text":"This service handles batch imports."}],"usage":{"input_tokens":400,"output_tokens":80,"cache_read_input_tokens":100}}}

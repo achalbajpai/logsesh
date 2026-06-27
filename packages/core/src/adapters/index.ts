@@ -1,4 +1,4 @@
-import type { Adapter, DiscoverOptions, SessionFile, ToolName, Warning } from "../types.js";
+import type { Adapter, DiscoverOptions, ToolName, Warning } from "../types.js";
 import { claudeCodeAdapter } from "./claude-code.js";
 import { codexAdapter } from "./codex.js";
 import { geminiAdapter } from "./gemini.js";
@@ -13,6 +13,10 @@ const ROOTS: Record<ToolName, (opts: DiscoverOptions) => string> = {
   codex: (opts) => opts.roots?.codex ?? join(homedir(), ".codex", "sessions"),
   gemini: (opts) => opts.roots?.gemini ?? join(homedir(), ".gemini", "tmp"),
 };
+
+export function getAdapterRoot(tool: ToolName, opts: DiscoverOptions = {}): string {
+  return ROOTS[tool](opts);
+}
 
 export function getAllAdapters(): Adapter[] {
   return ALL_ADAPTERS;
@@ -38,15 +42,6 @@ export async function getEnabledAdapters(
 }
 
 export { claudeCodeAdapter, codexAdapter, geminiAdapter };
-
-export async function* discoverAll(opts: DiscoverOptions): AsyncIterable<SessionFile> {
-  const adapters = await getEnabledAdapters(opts.toolFilter, undefined, opts);
-  for (const adapter of adapters) {
-    for await (const file of adapter.discover(opts)) {
-      yield file;
-    }
-  }
-}
 
 const VALID_TOOLS = new Set<ToolName>(["claude-code", "codex", "gemini"]);
 

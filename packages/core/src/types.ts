@@ -40,8 +40,19 @@ export interface Estimate {
   pricingSourceUrl?: string;
   model?: string;
   pricingConfidence?: "exact" | "historical" | "fallback" | "unknown";
+  pricingProvenance?: PricingProvenance;
   includesCacheTokens: boolean;
   warnings?: string[];
+}
+
+export interface PricingProvenance {
+  provider: string;
+  model: string;
+  sourceUrl: string;
+  verifiedAt: string;
+  effectiveFrom?: string;
+  status?: "current" | "historical" | "retired";
+  availability?: "available" | "restricted" | "retired";
 }
 
 export interface Warning {
@@ -58,7 +69,7 @@ export interface Warning {
 export interface Source {
   tool: ToolName;
   adapterVersion: string;
-  logFormatVersion?: string | "unknown";
+  logFormatVersion?: string;
   sourcePath: string;
 }
 
@@ -143,8 +154,12 @@ export interface StatsReport {
   sessionCount: number;
   turnCount: number;
   totalTokens: number;
-  knownCostUsd: number;
-  unknownCostSessionCount: number;
+  loggedCostUsd: number | null;
+  loggedSessionCount: number;
+  estimatedCostUsd: number | null;
+  estimatedSessionCount: number;
+  unpricedSessionCount: number;
+  unpricedTokens: number;
   byTool: Record<string, { sessions: number; turns: number; tokens: number }>;
   byProject: Record<string, { sessions: number; turns: number; tokens: number }>;
   mostActiveDays: Array<{ date: string; sessions: number; turns: number }>;
@@ -199,6 +214,7 @@ export interface DiscoverOptions {
 
 export interface PipelineOptions extends DiscoverOptions, ParseOptions {
   query?: string;
+  queryTextFilter?: boolean;
   estimateCost?: boolean;
   maxParseConcurrency?: number;
 }
@@ -211,9 +227,22 @@ export interface SanitizeOptions {
 export interface Adapter {
   tool: ToolName;
   adapterVersion: string;
+  capabilities: AdapterCapabilities;
   detect(): Promise<boolean>;
   discover(opts: DiscoverOptions): AsyncIterable<SessionFile>;
   parse(file: SessionFile, opts: ParseOptions): AsyncIterable<Session>;
+}
+
+export type AdapterCapabilityLevel = "full" | "partial" | "none" | "experimental";
+
+export interface AdapterCapabilities {
+  discovery: AdapterCapabilityLevel;
+  transcript: AdapterCapabilityLevel;
+  toolCalls: AdapterCapabilityLevel;
+  usage: AdapterCapabilityLevel;
+  model: AdapterCapabilityLevel;
+  reasoning: AdapterCapabilityLevel;
+  notes?: string[];
 }
 
 export type InputContentBlock =

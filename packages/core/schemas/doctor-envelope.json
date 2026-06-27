@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "format": {
+      "type": "string",
+      "const": "logsesh.doctor.v1"
+    },
+    "generatedAt": {
+      "type": "string"
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "tool": {
+            "type": "string",
+            "enum": [
+              "claude-code",
+              "codex",
+              "gemini"
+            ]
+          },
+          "detected": {
+            "type": "boolean"
+          },
+          "root": {
+            "type": "string"
+          },
+          "rootAccessible": {
+            "type": "boolean"
+          },
+          "candidateFiles": {
+            "type": "number"
+          },
+          "candidateFilesCapped": {
+            "type": "boolean"
+          },
+          "adapterVersion": {
+            "type": "string"
+          },
+          "capabilities": {
+            "type": "object",
+            "properties": {
+              "discovery": {
+                "type": "string",
+                "enum": [
+                  "full",
+                  "partial",
+                  "none",
+                  "experimental"
+                ]
+              },
+              "transcript": {
+                "type": "string",
+                "enum": [
+                  "full",
+                  "partial",
+                  "none",
+                  "experimental"
+                ]
+              },
+              "toolCalls": {
+                "type": "string",
+                "enum": [
+                  "full",
+                  "partial",
+                  "none",
+                  "experimental"
+                ]
+              },
+              "usage": {
+                "type": "string",
+                "enum": [
+                  "full",
+                  "partial",
+                  "none",
+                  "experimental"
+                ]
+              },
+              "model": {
+                "type": "string",
+                "enum": [
+                  "full",
+                  "partial",
+                  "none",
+                  "experimental"
+                ]
+              },
+              "reasoning": {
+                "type": "string",
+                "enum": [
+                  "full",
+                  "partial",
+                  "none",
+                  "experimental"
+                ]
+              },
+              "notes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "discovery",
+              "transcript",
+              "toolCalls",
+              "usage",
+              "model",
+              "reasoning"
+            ],
+            "additionalProperties": false
+          },
+          "permissionIssue": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool",
+          "detected",
+          "root",
+          "rootAccessible",
+          "candidateFiles",
+          "adapterVersion",
+          "capabilities"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "pricing": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string"
+        },
+        "asOf": {
+          "type": "string"
+        },
+        "sourceUrl": {
+          "type": "string"
+        },
+        "modelCount": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "version",
+        "asOf",
+        "sourceUrl",
+        "modelCount"
+      ],
+      "additionalProperties": false
+    },
+    "exportDefaults": {
+      "type": "object",
+      "properties": {
+        "transcriptRedactDefault": {
+          "type": "boolean"
+        },
+        "summaryCsvRedactRequired": {
+          "type": "boolean"
+        },
+        "anonymizePathsDefault": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "transcriptRedactDefault",
+        "summaryCsvRedactRequired",
+        "anonymizePathsDefault"
+      ],
+      "additionalProperties": false
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "info",
+              "warn",
+              "error"
+            ]
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "discovery",
+              "parse",
+              "export",
+              "package",
+              "pricing"
+            ]
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "line": {
+            "type": "number"
+          },
+          "cause": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "severity",
+          "scope"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "format",
+    "generatedAt",
+    "tools",
+    "pricing",
+    "exportDefaults"
+  ],
+  "additionalProperties": false
+}

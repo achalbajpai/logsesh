@@ -28,15 +28,19 @@ export function redactText(text: string, extraPatterns: RegExp[] = []): string {
   return result;
 }
 
-export function redactUnknown(value: unknown, patterns: RegExp[] = []): unknown {
-  if (typeof value === "string") return redactText(value, patterns);
-  if (Array.isArray(value)) return value.map((v) => redactUnknown(v, patterns));
-  if (value && typeof value === "object") {
+export function redactUnknown<T>(value: T, patterns: RegExp[] = []): T {
+  if (typeof value === "string") {
+    return redactText(value, patterns) as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((v) => redactUnknown(v, patterns)) as T;
+  }
+  if (value !== null && typeof value === "object") {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value)) {
       out[k] = redactUnknown(v, patterns);
     }
-    return out;
+    return out as T;
   }
   return value;
 }

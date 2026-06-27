@@ -109,8 +109,9 @@ describe("estimateSessionCost", () => {
       { model: "claude-3-sonnet-20240229", expected: 18 },
       { model: "claude-3-haiku-20240307", expected: 1.5 },
       { model: "claude-3-5-sonnet-20240620", expected: 18 },
+      { model: "claude-3-5-sonnet-20241022", expected: 18 },
       { model: "claude-3-7-sonnet-20250219", expected: 18 },
-      { model: "claude-3-5-haiku-20251001", expected: 4.8 },
+      { model: "claude-3-5-haiku-20241022", expected: 4.8 },
     ];
 
     for (const item of cases) {
@@ -184,5 +185,49 @@ describe("estimateSessionCost", () => {
     expect(estimate.costUsd).toBe(60);
     expect(estimate.pricingConfidence).toBe("exact");
     expect(estimate.warnings?.some((w) => w.includes("restricted availability"))).toBe(true);
+  });
+
+  it("includes row-level pricing provenance when matched", () => {
+    const estimate = estimateSessionCost({
+      ...base,
+      model: "gpt-5.5",
+      usage: { inputTokens: 1_000_000, outputTokens: 0 },
+    });
+    expect(estimate.pricingProvenance).toMatchObject({
+      provider: "openai",
+      model: "gpt-5.5",
+      sourceUrl: "https://platform.openai.com/docs/pricing",
+      verifiedAt: "2026-06-27",
+      status: "current",
+      availability: "available",
+    });
+    expect(estimate.pricingSourceUrl).toBe("https://platform.openai.com/docs/pricing");
+  });
+
+  it("uses retired-model provenance source for historical rows", () => {
+    const estimate = estimateSessionCost({
+      ...base,
+      model: "claude-3-opus-20240229",
+      usage: { inputTokens: 1_000_000, outputTokens: 0 },
+    });
+    expect(estimate.pricingProvenance?.status).toBe("retired");
+    expect(estimate.pricingProvenance?.sourceUrl).toBe(
+      "https://platform.claude.com/docs/en/about-claude/model-deprecations",
+    );
+  });
+
+  it("keeps retired Claude model provenance on the exact canonical row", () => {
+    const estimate = estimateSessionCost({
+      ...base,
+      model: "claude-3-5-sonnet-20241022",
+      usage: { inputTokens: 1_000_000, outputTokens: 0 },
+    });
+    expect(estimate.pricingProvenance).toMatchObject({
+      provider: "anthropic",
+      model: "claude-3-5-sonnet-20241022",
+      effectiveFrom: "2024-10-22",
+      status: "retired",
+      availability: "retired",
+    });
   });
 });

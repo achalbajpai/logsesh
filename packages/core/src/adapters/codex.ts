@@ -1,3 +1,4 @@
+import { CodexModelTracker, looksLikeModelId } from "../model-resolution.js";
 import { SessionBuilder } from "../session-builder.js";
 import { detectRootAccess, walkFiles } from "../fs-walk.js";
 import type {
@@ -19,13 +20,13 @@ import {
   codexMessagePayloadSchema,
   codexSessionMetaPayloadSchema,
   codexTokenCountPayloadSchema,
+  codexTurnContextPayloadSchema,
   codexWebSearchPayloadSchema,
   parseCodexPayload,
   requireCallId,
 } from "./codex-schemas.js";
 
-const ADAPTER_VERSION = "0.1.0";
-const PROVIDER_NAMES = new Set(["anthropic", "azure", "google", "openai", "openrouter"]);
+const ADAPTER_VERSION = "0.1.1";
 
 interface CodexTokenUsage {
   input_tokens?: number;
@@ -49,17 +50,8 @@ function mapCodexUsage(u: CodexTokenUsage): Usage {
   };
 }
 
-function looksLikeModelId(value: string): boolean {
-  const normalized = value.toLowerCase();
-  return (
-    !PROVIDER_NAMES.has(normalized) &&
-    /^(claude|codex|gemini|gpt|o\d)/.test(normalized) &&
-    /[\d-]/.test(normalized)
-  );
-}
-
 function codexModelFromMeta(meta: { model?: string; model_provider?: string }): string | undefined {
-  if (meta.model) return meta.model;
+  if (meta.model && looksLikeModelId(meta.model)) return meta.model;
   if (meta.model_provider && looksLikeModelId(meta.model_provider)) return meta.model_provider;
   return undefined;
 }
@@ -79,6 +71,19 @@ function messageText(content: unknown): string {
 export const codexAdapter: Adapter = {
   tool: "codex" as ToolName,
   adapterVersion: ADAPTER_VERSION,
+  capabilities: {
+    discovery: "full",
+    transcript: "partial",
+    toolCalls: "full",
+    usage: "full",
+    model: "partial",
+    reasoning: "partial",
+    notes: [
+      "Developer and system messages are skipped.",
+      "Encrypted reasoning blobs are not exported; summaries are captured when present.",
+      "Model is resolved from session_meta and turn_context; bare provider names are ignored.",
+    ],
+  },
 
   async detect(): Promise<boolean> {
     const { accessible } = await detectRootAccess(codexRoot({}), "codex");
@@ -105,7 +110,7 @@ export const codexAdapter: Adapter = {
   async *parse(file: SessionFile, opts: ParseOptions): AsyncIterable<Session> {
     let sessionId = sessionFileNameId(file.path);
     let projectPath: string | undefined;
-    let model: string | undefined;
+    const modelTracker = new CodexModelTracker();
     let lastTokenUsage: Usage | undefined;
     let sawTokenCount = false;
     let sawUsableTokenCount = false;
@@ -161,7 +166,13 @@ export const codexAdapter: Adapter = {
           if (!meta) return;
           if (meta.id) sessionId = meta.id;
           if (meta.cwd) projectPath = meta.cwd;
-          model = codexModelFromMeta(meta) ?? model;
+          modelTracker.observe(codexModelFromMeta(meta));
+          return;
+        }
+
+        if (lineType === "turn_context") {
+          const ctx = parseCodexPayload(codexTurnContextPayloadSchema, payload);
+          if (ctx?.model) modelTracker.observe(ctx.model);
           return;
         }
 
@@ -318,7 +329,7 @@ export const codexAdapter: Adapter = {
     const session = builder.finalize();
     session.id = sessionId;
     session.projectPath = projectPath;
-    session.model = model;
+    session.model = modelTracker.resolve();
     if (lastTokenUsage) session.usage = lastTokenUsage;
     yield session;
   },

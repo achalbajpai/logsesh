@@ -18,4 +18,9 @@ describe("matchesProject", () => {
   it("normalizes trailing slashes", () => {
     expect(matchesProject("/Users/me/project/", "/Users/me/project")).toBe(true);
   });
+
+  it("matches project directory names without full paths", () => {
+    expect(matchesProject("/Users/me/work/logsesh/src", "logsesh")).toBe(true);
+    expect(matchesProject("/Users/me/work/logsesh-backup", "logsesh")).toBe(false);
+  });
 });

@@ -1,3 +1,4 @@
+import { ClaudeModelTracker } from "../model-resolution.js";
 import { SessionBuilder } from "../session-builder.js";
 import { detectRootAccess } from "../fs-walk.js";
 import type {
@@ -17,8 +18,9 @@ import {
 import { readdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { z } from "zod";
 
-const ADAPTER_VERSION = "0.1.0";
+const ADAPTER_VERSION = "0.1.1";
 const IGNORED_TYPES = new Set([
   "queue-operation",
   "file-history-snapshot",
@@ -27,32 +29,62 @@ const IGNORED_TYPES = new Set([
   "attachment",
 ]);
 
-interface ClaudeLine {
-  type?: string;
-  timestamp?: string;
-  cwd?: string;
-  sessionId?: string;
-  model?: string;
-  message?: {
-    id?: string;
-    role?: string;
-    model?: string;
-    content?: string | ClaudeContentBlock[];
-    usage?: {
-      input_tokens?: number;
-      output_tokens?: number;
-      cache_read_input_tokens?: number;
-      cache_creation_input_tokens?: number;
-    };
-  };
-}
+const claudeLineSchema = z.object({
+  type: z.string().optional(),
+  timestamp: z.string().optional(),
+  cwd: z.string().optional(),
+  sessionId: z.string().optional(),
+  model: z.string().optional(),
+  message: z
+    .object({
+      id: z.string().optional(),
+      role: z.string().optional(),
+      model: z.string().optional(),
+      content: z.union([z.string(), z.array(z.unknown())]).optional(),
+      usage: z
+        .object({
+          input_tokens: z.number().optional(),
+          output_tokens: z.number().optional(),
+          cache_read_input_tokens: z.number().optional(),
+          cache_creation_input_tokens: z.number().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+});
 
-type ClaudeContentBlock =
-  | { type: "text"; text: string }
-  | { type: "thinking"; thinking: string }
-  | { type: "tool_use"; id: string; name: string; input?: unknown }
-  | { type: "tool_result"; tool_use_id: string; content?: unknown; is_error?: boolean }
-  | { type: "image"; source?: { media_type?: string; data?: string } };
+type ClaudeContentBlock = z.infer<typeof claudeContentBlockSchema>;
+
+const claudeContentBlockSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("text"), text: z.string() }),
+  z.object({ type: z.literal("thinking"), thinking: z.string() }),
+  z.object({
+    type: z.literal("tool_use"),
+    id: z.string(),
+    name: z.string(),
+    input: z.unknown().optional(),
+  }),
+  z.object({
+    type: z.literal("tool_result"),
+    tool_use_id: z.string(),
+    content: z.unknown().optional(),
+    is_error: z.boolean().optional(),
+  }),
+  z.object({
+    type: z.literal("image"),
+    source: z
+      .object({
+        media_type: z.string().optional(),
+        data: z.string().optional(),
+      })
+      .optional(),
+  }),
+]);
+
+function parseClaudeContentBlock(raw: unknown): ClaudeContentBlock | null {
+  const parsed = claudeContentBlockSchema.safeParse(raw);
+  return parsed.success ? parsed.data : null;
+}
 
 function claudeRoot(opts: DiscoverOptions): string {
   return opts.roots?.["claude-code"] ?? join(homedir(), ".claude", "projects");
@@ -61,6 +93,17 @@ function claudeRoot(opts: DiscoverOptions): string {
 export const claudeCodeAdapter: Adapter = {
   tool: "claude-code" as ToolName,
   adapterVersion: ADAPTER_VERSION,
+  capabilities: {
+    discovery: "full",
+    transcript: "full",
+    toolCalls: "full",
+    usage: "full",
+    model: "partial",
+    reasoning: "full",
+    notes: [
+      "Model is resolved from billable assistant usage; placeholder values like <synthetic> are ignored.",
+    ],
+  },
 
   async detect(): Promise<boolean> {
     const { accessible } = await detectRootAccess(claudeRoot({}), "claude-code");
@@ -122,12 +165,12 @@ export const claudeCodeAdapter: Adapter = {
     });
 
     let resolvedProjectPath = projectPath;
-    let model: string | undefined;
+    const modelTracker = new ClaudeModelTracker();
 
     const readResult = await readJsonlLines(
       file.path,
       (line, lineNumber) => {
-        const parsed = parseJsonLine<ClaudeLine>(line, lineNumber, file.path);
+        const parsed = parseJsonLine(line, lineNumber, file.path);
         if (!parsed.ok) {
           builder.addWarning({
             code: "malformed_line",
@@ -141,11 +184,24 @@ export const claudeCodeAdapter: Adapter = {
           return;
         }
 
-        const record = parsed.value;
+        const lineParsed = claudeLineSchema.safeParse(parsed.value);
+        if (!lineParsed.success) {
+          builder.addWarning({
+            code: "invalid_line_shape",
+            message: `Line ${lineNumber}: invalid Claude record shape`,
+            severity: "warn",
+            scope: "parse",
+            sourcePath: file.path,
+            sessionId,
+            line: lineNumber,
+          });
+          return;
+        }
+
+        const record = lineParsed.data;
         if (!record.type || IGNORED_TYPES.has(record.type)) return;
 
         if (record.cwd) resolvedProjectPath = record.cwd;
-        model = record.model ?? record.message?.model ?? model;
 
         if (record.type === "user" && record.message) {
           const blocks = mapClaudeUserContent(record.message.content);
@@ -174,9 +230,18 @@ export const claudeCodeAdapter: Adapter = {
         }
 
         if (record.type === "assistant" && record.message) {
+          const usage = record.message.usage;
+          const usageWeight = usage
+            ? (usage.input_tokens ?? 0) +
+              (usage.output_tokens ?? 0) +
+              (usage.cache_read_input_tokens ?? 0) +
+              (usage.cache_creation_input_tokens ?? 0)
+            : 0;
+          modelTracker.observe(record.model ?? record.message.model, usageWeight);
+
           const msgId = record.message.id ?? `line-${lineNumber}`;
           const blocks = mapClaudeAssistantContent(record.message.content);
-          const usage = record.message.usage
+          const usageBlock = record.message.usage
             ? {
                 inputTokens: record.message.usage.input_tokens,
                 outputTokens: record.message.usage.output_tokens,
@@ -195,7 +260,7 @@ export const claudeCodeAdapter: Adapter = {
             fragmentGroupId: msgId,
             sourceLine: lineNumber,
             blocks,
-            usage,
+            usage: usageBlock,
             timestamp: record.timestamp,
           });
         }
@@ -216,13 +281,13 @@ export const claudeCodeAdapter: Adapter = {
 
     const session = builder.finalize();
     session.projectPath = resolvedProjectPath;
-    session.model = model;
+    session.model = modelTracker.resolve();
     yield session;
   },
 };
 
 function mapClaudeUserContent(
-  content: string | ClaudeContentBlock[] | undefined,
+  content: unknown,
 ): Array<
   | { kind: "text"; text: string }
   | { kind: "image"; mediaType?: string; bytes?: number; note?: string }
@@ -230,9 +295,12 @@ function mapClaudeUserContent(
 > {
   if (!content) return [];
   if (typeof content === "string") return [{ kind: "text", text: content }];
+  if (!Array.isArray(content)) return [];
 
   const result: ReturnType<typeof mapClaudeUserContent> = [];
-  for (const block of content) {
+  for (const raw of content) {
+    const block = parseClaudeContentBlock(raw);
+    if (!block) continue;
     if (block.type === "text") {
       result.push({ kind: "text", text: block.text });
     } else if (block.type === "image") {
@@ -255,9 +323,10 @@ function mapClaudeUserContent(
   return result;
 }
 
-function mapClaudeAssistantContent(content: string | ClaudeContentBlock[] | undefined) {
+function mapClaudeAssistantContent(content: unknown) {
   if (!content) return [];
   if (typeof content === "string") return [{ kind: "text" as const, text: content }];
+  if (!Array.isArray(content)) return [];
 
   const blocks: Array<
     | { kind: "text"; text: string }
@@ -265,7 +334,9 @@ function mapClaudeAssistantContent(content: string | ClaudeContentBlock[] | unde
     | { kind: "tool_use"; id: string; name: string; input?: unknown }
   > = [];
 
-  for (const block of content) {
+  for (const raw of content) {
+    const block = parseClaudeContentBlock(raw);
+    if (!block) continue;
     if (block.type === "text") {
       blocks.push({ kind: "text", text: block.text });
     } else if (block.type === "thinking") {

@@ -10,9 +10,10 @@ import type {
 import {
   discoverFiles,
   matchesDateRange,
-  matchesProject,
-  matchesSessionQuery,
+  matchesSessionFilters,
+  matchesSessionTextQuery,
 } from "./discovery.js";
+import { parseQuery } from "./query.js";
 import { getAllAdapters, getEnabledAdapters } from "./adapters/index.js";
 import { mergeWarnings } from "./warnings.js";
 
@@ -44,10 +45,13 @@ export async function* runPipeline(opts: PipelineOptions = {}): AsyncIterable<Pi
     const adapter = adapterByTool.get(file.tool);
     if (!adapter) return [];
     const results: Array<{ session: Session; warnings: Warning[] }> = [];
+    const parsedQuery = parseQuery(opts.query ?? "");
     for await (const session of adapter.parse(file, opts)) {
-      if (!matchesProject(session.projectPath, opts.projectFilter)) continue;
+      if (!matchesSessionFilters(session, parsedQuery, opts.projectFilter)) continue;
       if (!matchesDateRange(session.startedAt, session.endedAt, opts.since, opts.until)) continue;
-      if (!matchesSessionQuery(session, opts.query)) continue;
+      if (opts.queryTextFilter !== false && !matchesSessionTextQuery(session, parsedQuery)) {
+        continue;
+      }
       results.push({ session, warnings: session.warnings ?? [] });
     }
     return results;
@@ -82,10 +86,12 @@ export async function* runPipeline(opts: PipelineOptions = {}): AsyncIterable<Pi
   function drainReady(): PipelineResult[] {
     const ready: PipelineResult[] = [];
     batches.sort((a, b) => a.order - b.order);
-    while (batches.length > 0 && batches[0]!.order === nextToYield) {
-      const batch = batches.shift()!;
+    while (batches.length > 0) {
+      const head = batches[0];
+      if (!head || head.order !== nextToYield) break;
+      batches.shift();
       nextToYield++;
-      ready.push(...batch.results);
+      ready.push(...head.results);
     }
     return ready;
   }
@@ -112,8 +118,7 @@ export async function* runPipeline(opts: PipelineOptions = {}): AsyncIterable<Pi
         }
 
         inFlight++;
-        let task!: Promise<void>;
-        task = (async () => {
+        const task = (async () => {
           let batchResults: PipelineResult[] = [];
           try {
             const parsed = await parseFile(file);
@@ -123,10 +128,12 @@ export async function* runPipeline(opts: PipelineOptions = {}): AsyncIterable<Pi
           } finally {
             enqueueBatch(fileOrder, batchResults);
             inFlight--;
-            pending.delete(task);
           }
         })();
         pending.add(task);
+        void task.finally(() => {
+          pending.delete(task);
+        });
       }
 
       await Promise.all(pending);
@@ -150,7 +157,15 @@ export async function* runPipeline(opts: PipelineOptions = {}): AsyncIterable<Pi
   }
 
   await worker;
-  if (workerError) throw workerError;
+  if (workerError !== undefined) {
+    const message =
+      workerError instanceof Error
+        ? workerError.message
+        : typeof workerError === "string"
+          ? workerError
+          : JSON.stringify(workerError);
+    throw workerError instanceof Error ? workerError : new Error(message);
+  }
 
   if (!yieldedAny && sharedWarnings.length > 0) {
     yield { warnings: sharedWarnings };

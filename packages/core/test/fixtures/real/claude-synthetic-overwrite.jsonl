@@ -1,0 +1,3 @@
+{"type":"user","timestamp":"2026-06-26T17:54:47.000Z","cwd":"/Users/example/demo-app","message":{"role":"user","content":"Build the parser"}}
+{"type":"assistant","timestamp":"2026-06-26T17:54:48.000Z","message":{"id":"msg-real","role":"assistant","model":"claude-opus-4-8","content":[{"type":"text","text":"Starting work."}],"usage":{"input_tokens":5000,"output_tokens":800,"cache_read_input_tokens":1200}}}
+{"type":"assistant","timestamp":"2026-06-26T20:14:28.000Z","message":{"id":"msg-synthetic","role":"assistant","model":"<synthetic>","content":[{"type":"text","text":"You've hit your session limit"}],"usage":{"input_tokens":0,"output_tokens":0}}}

@@ -1,16 +1,59 @@
-export * from "./types.js";
+export type {
+  ToolName,
+  ContentBlock,
+  PublicWarning,
+  PublicContentBlock,
+  PublicTurn,
+  PublicSession,
+  ReasoningSession,
+  RawPathPublicSession,
+  RawPathReasoningSession,
+  ExportSession,
+  ExportTurn,
+  AdapterCapabilityLevel,
+  InputContentBlock,
+  ToolCall,
+  Turn,
+  Usage,
+  Estimate,
+  PricingProvenance,
+  Warning,
+  Source,
+  Session,
+  JsonExportEnvelope,
+  JsonlRecord,
+  SessionSummary,
+  SearchMatch,
+  StatsReport,
+  ListEnvelope,
+  SearchEnvelope,
+  StatsEnvelope,
+  DebugEnvelope,
+  SessionFile,
+  ParseOptions,
+  DiscoverOptions,
+  PipelineOptions,
+  SanitizeOptions,
+  Adapter,
+  AdapterCapabilities,
+  AddRecordInput,
+  AddToolResultInput,
+  SessionBuilderOptions,
+} from "./types.js";
 export { SessionBuilder } from "./session-builder.js";
 export {
   discover,
   discoverFiles,
   parseDateFilter,
   matchesProject,
+  matchesTool,
   matchesDateRange,
   matchesSessionQuery,
 } from "./discovery.js";
 export { runPipeline, parseFile, toPublicWarnings } from "./pipeline.js";
 export { inferToolFromPath, resolveDebugTool, sniffToolFromLogLine } from "./infer-tool.js";
-export { mergeWarnings } from "./warnings.js";
+export { mergeWarnings, summarizeWarnings } from "./warnings.js";
+export type { SummarizedWarning } from "./warnings.js";
 export { sessionToSummary } from "./filters.js";
 export { parseQuery, matchesQuery } from "./query.js";
 export { searchSession, parseSearchQuery } from "./search.js";
@@ -25,7 +68,10 @@ export {
   PRICING_VERSION,
   PRICING_AS_OF,
   PRICING_SOURCE_URL,
+  PRICING_MODEL_COUNT,
 } from "./pricing.js";
+export { runDoctor } from "./doctor.js";
+export type { DoctorReport, DoctorToolReport } from "./doctor.js";
 export {
   sessionSchema,
   publicSessionSchema,
@@ -33,6 +79,7 @@ export {
   searchEnvelopeSchema,
   statsEnvelopeSchema,
   debugEnvelopeSchema,
+  doctorEnvelopeSchema,
   jsonExportEnvelopeSchema,
   jsonlRecordSchema,
   generatedAt,
@@ -41,6 +88,7 @@ export type { ParseRootsResult } from "./adapters/index.js";
 export {
   getAllAdapters,
   getEnabledAdapters,
+  getAdapterRoot,
   parseRootsOverride,
   claudeCodeAdapter,
   codexAdapter,

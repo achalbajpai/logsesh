@@ -1,6 +1,7 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { createInterface } from "node:readline";
+import type { z } from "zod";
 
 export async function readJsonlLines(
   filePath: string,
@@ -25,17 +26,36 @@ export async function readJsonlLines(
   return { skipped: false, size: fileStat.size };
 }
 
-export function parseJsonLine<T = unknown>(
+export function parseJsonLine(
   line: string,
   lineNumber: number,
   sourcePath: string,
-): { ok: true; value: T } | { ok: false; error: string } {
+): { ok: true; value: unknown } | { ok: false; error: string } {
   try {
-    return { ok: true, value: JSON.parse(line) as T };
+    const value: unknown = JSON.parse(line);
+    return { ok: true, value };
   } catch (err) {
     const cause = err instanceof Error ? err.message : String(err);
     return { ok: false, error: `Line ${lineNumber} in ${sourcePath}: ${cause}` };
   }
+}
+
+export function parseJsonLineWithSchema<S extends z.ZodType>(
+  line: string,
+  lineNumber: number,
+  sourcePath: string,
+  schema: S,
+): { ok: true; value: z.infer<S> } | { ok: false; error: string } {
+  const parsed = parseJsonLine(line, lineNumber, sourcePath);
+  if (!parsed.ok) return parsed;
+  const validated = schema.safeParse(parsed.value);
+  if (!validated.success) {
+    return {
+      ok: false,
+      error: `Line ${lineNumber} in ${sourcePath}: invalid JSON shape`,
+    };
+  }
+  return { ok: true, value: validated.data };
 }
 
 export function decodeClaudeProjectSlug(slug: string): string {

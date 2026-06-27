@@ -9,6 +9,7 @@ import type {
   ReasoningSession,
   SanitizeOptions,
   Session,
+  Source,
   Turn,
   Warning,
 } from "./types.js";
@@ -36,12 +37,67 @@ function anonymizeSessionPaths(session: Session, home = process.env.HOME ?? ""):
   };
 }
 
-function toPublicTurns(turns: Turn[], includeReasoning: boolean): PublicTurn[] | Turn[] {
-  if (includeReasoning) return turns;
+function toPublicTurns(turns: Turn[]): PublicTurn[] {
   return turns.map((t) => ({
     ...t,
     content: stripThinking(t.content),
   }));
+}
+
+function publicSource(source: Source): PublicSession["source"] {
+  return {
+    tool: source.tool,
+    adapterVersion: source.adapterVersion,
+    logFormatVersion: source.logFormatVersion,
+  };
+}
+
+type SessionFields = Omit<Session, "turns" | "source" | "warnings">;
+
+function buildRawPathReasoningSession(
+  fields: SessionFields,
+  turns: Turn[],
+  source: Source,
+  warnings?: Warning[],
+): RawPathReasoningSession {
+  return { ...fields, turns, source, warnings };
+}
+
+function buildRawPathPublicSession(
+  fields: SessionFields,
+  turns: PublicTurn[],
+  source: Source,
+  warnings?: Warning[],
+): RawPathPublicSession {
+  return { ...fields, turns, source, warnings };
+}
+
+function buildReasoningSession(
+  fields: SessionFields,
+  turns: Turn[],
+  source: Source,
+  warnings?: Warning[],
+): ReasoningSession {
+  return {
+    ...fields,
+    turns,
+    source: publicSource(source),
+    warnings: warnings?.map(anonymizeWarning),
+  };
+}
+
+function buildPublicSession(
+  fields: SessionFields,
+  turns: PublicTurn[],
+  source: Source,
+  warnings?: Warning[],
+): PublicSession {
+  return {
+    ...fields,
+    turns,
+    source: publicSource(source),
+    warnings: warnings?.map(anonymizeWarning),
+  };
 }
 
 export function sanitizeForExport(
@@ -61,37 +117,17 @@ export function sanitizeForExport(session: Session, opts: SanitizeOptions = {}):
   const includeReasoning = opts.includeReasoning ?? false;
   const rawPaths = opts.rawPaths ?? false;
   const base = rawPaths ? session : anonymizeSessionPaths(session);
-
-  const turns = toPublicTurns(base.turns, includeReasoning);
-  const { source, warnings, ...rest } = base;
+  const { source, warnings, ...fields } = base;
 
   if (rawPaths && includeReasoning) {
-    return { ...rest, turns: turns as Turn[], source, warnings } as RawPathReasoningSession;
+    return buildRawPathReasoningSession(fields, base.turns, source, warnings);
   }
   if (rawPaths) {
-    return { ...rest, turns: turns as PublicTurn[], source, warnings } as RawPathPublicSession;
+    return buildRawPathPublicSession(fields, toPublicTurns(base.turns), source, warnings);
   }
   if (includeReasoning) {
-    return {
-      ...rest,
-      turns: turns as Turn[],
-      source: {
-        tool: source.tool,
-        adapterVersion: source.adapterVersion,
-        logFormatVersion: source.logFormatVersion,
-      },
-      warnings: warnings?.map(anonymizeWarning),
-    } as ReasoningSession;
+    return buildReasoningSession(fields, base.turns, source, warnings);
   }
 
-  return {
-    ...rest,
-    turns: turns as PublicTurn[],
-    source: {
-      tool: source.tool,
-      adapterVersion: source.adapterVersion,
-      logFormatVersion: source.logFormatVersion,
-    },
-    warnings: warnings?.map(anonymizeWarning),
-  } as PublicSession;
+  return buildPublicSession(fields, toPublicTurns(base.turns), source, warnings);
 }

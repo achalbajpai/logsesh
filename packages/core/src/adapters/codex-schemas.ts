@@ -21,6 +21,10 @@ export const codexSessionMetaPayloadSchema = z.object({
   model_provider: z.string().optional(),
 });
 
+export const codexTurnContextPayloadSchema = z.object({
+  model: z.string().optional(),
+});
+
 export const codexTokenCountPayloadSchema = z.object({
   type: z.literal("token_count"),
   info: z

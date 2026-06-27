@@ -50,7 +50,8 @@ export async function detectRootAccess(
     await access(root);
     return { accessible: true };
   } catch (err) {
-    const code = (err as NodeJS.ErrnoException).code;
+    const code =
+      err instanceof Error && "code" in err && typeof err.code === "string" ? err.code : undefined;
     if (code === "EACCES" || code === "EPERM") {
       return {
         accessible: false,

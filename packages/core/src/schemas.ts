@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-export const toolNameSchema = z.enum(["claude-code", "codex", "gemini"]);
+const toolNameSchema = z.enum(["claude-code", "codex", "gemini"]);
 
-export const contentBlockSchema = z.discriminatedUnion("kind", [
+const contentBlockSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("text"), text: z.string() }),
   z.object({ kind: z.literal("thinking"), text: z.string() }),
   z.object({
@@ -25,7 +25,7 @@ export const contentBlockSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 
-export const warningSchema = z.object({
+const warningSchema = z.object({
   code: z.string(),
   message: z.string(),
   severity: z.enum(["info", "warn", "error"]),
@@ -36,9 +36,9 @@ export const warningSchema = z.object({
   cause: z.string().optional(),
 });
 
-export const publicWarningSchema = warningSchema.omit({ sourcePath: true });
+const publicWarningSchema = warningSchema.omit({ sourcePath: true });
 
-export const usageSchema = z.object({
+const usageSchema = z.object({
   inputTokens: z.number().optional(),
   outputTokens: z.number().optional(),
   cacheReadTokens: z.number().optional(),
@@ -47,13 +47,24 @@ export const usageSchema = z.object({
   totalTokens: z.number().optional(),
 });
 
-export const estimateSchema = z.object({
+const estimateSchema = z.object({
   costUsd: z.number().nullable(),
   pricingVersion: z.string(),
   pricingAsOf: z.string(),
   pricingSourceUrl: z.string().optional(),
   model: z.string().optional(),
   pricingConfidence: z.enum(["exact", "historical", "fallback", "unknown"]).optional(),
+  pricingProvenance: z
+    .object({
+      provider: z.string(),
+      model: z.string(),
+      sourceUrl: z.string(),
+      verifiedAt: z.string(),
+      effectiveFrom: z.string().optional(),
+      status: z.enum(["current", "historical", "retired"]).optional(),
+      availability: z.enum(["available", "restricted", "retired"]).optional(),
+    })
+    .optional(),
   includesCacheTokens: z.boolean(),
   warnings: z.array(z.string()).optional(),
 });
@@ -98,7 +109,7 @@ export const sessionSchema = z.object({
   warnings: z.array(warningSchema).optional(),
 });
 
-export const publicContentBlockSchema = z.discriminatedUnion("kind", [
+const publicContentBlockSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("text"), text: z.string() }),
   z.object({
     kind: z.literal("image"),
@@ -120,7 +131,7 @@ export const publicContentBlockSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 
-export const publicTurnSchema = z.object({
+const publicTurnSchema = z.object({
   id: z.string(),
   index: z.number(),
   timestamp: z.string().optional(),
@@ -159,7 +170,7 @@ export const publicSessionSchema = z.object({
   warnings: z.array(publicWarningSchema).optional(),
 });
 
-export const sessionSummarySchema = z.object({
+const sessionSummarySchema = z.object({
   id: z.string(),
   tool: toolNameSchema,
   startedAt: z.string().optional(),
@@ -179,7 +190,7 @@ export const listEnvelopeSchema = z.object({
   warnings: z.array(publicWarningSchema).optional(),
 });
 
-export const searchMatchSchema = z.object({
+const searchMatchSchema = z.object({
   sessionId: z.string(),
   tool: toolNameSchema,
   projectPath: z.string().optional(),
@@ -195,12 +206,16 @@ export const searchEnvelopeSchema = z.object({
   warnings: z.array(publicWarningSchema).optional(),
 });
 
-export const statsReportSchema = z.object({
+const statsReportSchema = z.object({
   sessionCount: z.number(),
   turnCount: z.number(),
   totalTokens: z.number(),
-  knownCostUsd: z.number(),
-  unknownCostSessionCount: z.number(),
+  loggedCostUsd: z.number().nullable(),
+  loggedSessionCount: z.number(),
+  estimatedCostUsd: z.number().nullable(),
+  estimatedSessionCount: z.number(),
+  unpricedSessionCount: z.number(),
+  unpricedTokens: z.number(),
   byTool: z.record(
     z.string(),
     z.object({ sessions: z.number(), turns: z.number(), tokens: z.number() }),
@@ -238,6 +253,46 @@ export const jsonlRecordSchema = z.object({
   format: z.literal("logsesh.jsonl.v1"),
   generatedAt: z.string(),
   record: z.unknown(),
+  warnings: z.array(publicWarningSchema).optional(),
+});
+
+const adapterCapabilitiesSchema = z.object({
+  discovery: z.enum(["full", "partial", "none", "experimental"]),
+  transcript: z.enum(["full", "partial", "none", "experimental"]),
+  toolCalls: z.enum(["full", "partial", "none", "experimental"]),
+  usage: z.enum(["full", "partial", "none", "experimental"]),
+  model: z.enum(["full", "partial", "none", "experimental"]),
+  reasoning: z.enum(["full", "partial", "none", "experimental"]),
+  notes: z.array(z.string()).optional(),
+});
+
+export const doctorEnvelopeSchema = z.object({
+  format: z.literal("logsesh.doctor.v1"),
+  generatedAt: z.string(),
+  tools: z.array(
+    z.object({
+      tool: toolNameSchema,
+      detected: z.boolean(),
+      root: z.string(),
+      rootAccessible: z.boolean(),
+      candidateFiles: z.number(),
+      candidateFilesCapped: z.boolean().optional(),
+      adapterVersion: z.string(),
+      capabilities: adapterCapabilitiesSchema,
+      permissionIssue: z.string().optional(),
+    }),
+  ),
+  pricing: z.object({
+    version: z.string(),
+    asOf: z.string(),
+    sourceUrl: z.string(),
+    modelCount: z.number(),
+  }),
+  exportDefaults: z.object({
+    transcriptRedactDefault: z.boolean(),
+    summaryCsvRedactRequired: z.boolean(),
+    anonymizePathsDefault: z.boolean(),
+  }),
   warnings: z.array(publicWarningSchema).optional(),
 });
 

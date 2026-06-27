@@ -1,0 +1,155 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`real-log fixture corpus > claude interrupted session with unmatched tool result 1`] = `
+{
+  "contentKinds": [
+    "text",
+    "tool_use",
+    "tool_result",
+  ],
+  "model": "claude-sonnet-4-6",
+  "projectPath": "real",
+  "roles": [
+    "user",
+    "assistant",
+    "tool",
+  ],
+  "tool": "claude-code",
+  "toolCallNames": [
+    "Bash",
+  ],
+  "turnCount": 3,
+  "usage": {
+    "cacheReadTokens": undefined,
+    "cacheWriteTokens": undefined,
+    "inputTokens": 50,
+    "outputTokens": 10,
+    "totalTokens": 60,
+  },
+  "warningCodes": [
+    "unmatched_tool_result",
+  ],
+}
+`;
+
+exports[`real-log fixture corpus > claude multi-fragment session uses the final cumulative usage block 1`] = `
+{
+  "contentKinds": [
+    "text",
+    "thinking",
+    "text",
+    "tool_use",
+    "tool_result",
+    "image",
+  ],
+  "model": "claude-sonnet-4-6",
+  "projectPath": "/Users/example/demo-app",
+  "roles": [
+    "user",
+    "assistant",
+    "tool",
+    "user",
+  ],
+  "tool": "claude-code",
+  "toolCallNames": [
+    "Read",
+  ],
+  "turnCount": 4,
+  "usage": {
+    "cacheReadTokens": undefined,
+    "cacheWriteTokens": undefined,
+    "inputTokens": 120,
+    "outputTokens": 45,
+    "totalTokens": 165,
+  },
+  "warningCodes": [],
+}
+`;
+
+exports[`real-log fixture corpus > claude retired model row 1`] = `
+{
+  "contentKinds": [
+    "text",
+    "text",
+  ],
+  "model": "claude-3-5-sonnet-20241022",
+  "projectPath": "real",
+  "roles": [
+    "user",
+    "assistant",
+  ],
+  "tool": "claude-code",
+  "toolCallNames": [],
+  "turnCount": 2,
+  "usage": {
+    "cacheReadTokens": 100,
+    "cacheWriteTokens": undefined,
+    "inputTokens": 400,
+    "outputTokens": 80,
+    "totalTokens": 580,
+  },
+  "warningCodes": [],
+}
+`;
+
+exports[`real-log fixture corpus > codex giant tool output is bounded 1`] = `
+{
+  "contentKinds": [
+    "text",
+    "tool_use",
+    "tool_result",
+  ],
+  "model": "gpt-5.3-codex",
+  "projectPath": "/Users/example/demo-app",
+  "roles": [
+    "user",
+    "assistant",
+    "tool",
+  ],
+  "tool": "codex",
+  "toolCallNames": [
+    "shell",
+  ],
+  "turnCount": 3,
+  "usage": {
+    "cacheReadTokens": undefined,
+    "inputTokens": 9000,
+    "outputTokens": 4000,
+    "reasoningTokens": undefined,
+    "totalTokens": 13000,
+  },
+  "warningCodes": [
+    "truncated_tool_output",
+  ],
+}
+`;
+
+exports[`real-log fixture corpus > codex session with model_provider and token events 1`] = `
+{
+  "contentKinds": [
+    "text",
+    "tool_use",
+    "tool_result",
+  ],
+  "model": "gpt-5.3-codex",
+  "projectPath": "/Users/example/demo-app",
+  "roles": [
+    "user",
+    "assistant",
+    "tool",
+  ],
+  "tool": "codex",
+  "toolCallNames": [
+    "shell",
+  ],
+  "turnCount": 3,
+  "usage": {
+    "cacheReadTokens": 50,
+    "inputTokens": 500,
+    "outputTokens": 120,
+    "reasoningTokens": 30,
+    "totalTokens": 700,
+  },
+  "warningCodes": [],
+}
+`;

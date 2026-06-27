@@ -1,6 +1,6 @@
 import pricingData from "../pricing/models.json" with { type: "json" };
 import { z } from "zod";
-import type { Estimate, Session } from "./types.js";
+import type { Estimate, PricingProvenance, Session } from "./types.js";
 
 const PriceRowSchema = z.object({
   input: z.number().nonnegative(),
@@ -10,9 +10,14 @@ const PriceRowSchema = z.object({
 });
 
 const PricingModelRowSchema = PriceRowSchema.extend({
+  provider: z.string().min(1),
+  model: z.string().min(1),
   aliases: z.array(z.string().min(1)).min(1),
-  status: z.enum(["current", "historical", "retired"]).optional(),
-  availability: z.enum(["available", "restricted", "retired"]).optional(),
+  status: z.enum(["current", "historical", "retired"]),
+  availability: z.enum(["available", "restricted", "retired"]),
+  sourceUrl: z.string().url(),
+  verifiedAt: z.string().min(1),
+  effectiveFrom: z.string().min(1),
   note: z.string().min(1).optional(),
 });
 
@@ -32,6 +37,7 @@ const PricingDataSchema = z.object({
 });
 
 type PriceRow = z.infer<typeof PriceRowSchema>;
+type PricingModelRow = z.infer<typeof PricingModelRowSchema>;
 type PricingConfidence = Estimate["pricingConfidence"];
 
 const DATA = PricingDataSchema.parse(pricingData);
@@ -39,6 +45,7 @@ const DATA = PricingDataSchema.parse(pricingData);
 export const PRICING_VERSION = DATA.version;
 export const PRICING_AS_OF = DATA.asOf;
 export const PRICING_SOURCE_URL = DATA.sourceUrl;
+export const PRICING_MODEL_COUNT = DATA.models.length;
 
 function normalizeModel(model: string): string {
   return model.toLowerCase().replace(/[._]/g, "-");
@@ -54,40 +61,36 @@ function modelExactlyMatchesAlias(model: string, alias: string): boolean {
   return normalizeModel(model) === normalizeModel(alias);
 }
 
+function rowProvenance(row: PricingModelRow): PricingProvenance {
+  return {
+    provider: row.provider,
+    model: row.model,
+    sourceUrl: row.sourceUrl,
+    verifiedAt: row.verifiedAt,
+    effectiveFrom: row.effectiveFrom,
+    status: row.status,
+    availability: row.availability,
+  };
+}
+
 function priceForModel(model: string | undefined): {
   price: PriceRow;
   matched: boolean;
   matchedAlias?: string;
-  status?: "current" | "historical" | "retired";
-  availability?: "available" | "restricted" | "retired";
-  note?: string;
+  row?: PricingModelRow;
 } {
   if (!model) return { price: DATA.default, matched: false };
   for (const row of DATA.models) {
     for (const alias of row.aliases) {
       if (modelExactlyMatchesAlias(model, alias)) {
-        return {
-          price: row,
-          matched: true,
-          matchedAlias: alias,
-          status: row.status,
-          availability: row.availability,
-          note: row.note,
-        };
+        return { price: row, matched: true, matchedAlias: alias, row };
       }
     }
   }
   for (const row of DATA.models) {
     for (const alias of row.aliases) {
       if (modelMatchesAlias(model, alias)) {
-        return {
-          price: row,
-          matched: true,
-          matchedAlias: alias,
-          status: row.status,
-          availability: row.availability,
-          note: row.note,
-        };
+        return { price: row, matched: true, matchedAlias: alias, row };
       }
     }
   }
@@ -95,7 +98,10 @@ function priceForModel(model: string | undefined): {
 }
 
 export function estimateSessionCost(session: Session): Estimate {
-  const { price, matched, matchedAlias, status, availability, note } = priceForModel(session.model);
+  const { price, matched, matchedAlias, row } = priceForModel(session.model);
+  const status = row?.status;
+  const availability = row?.availability;
+  const note = row?.note;
   const usage = session.usage ?? {};
   const warnings: string[] = [];
   let pricingConfidence: PricingConfidence = "exact";
@@ -151,9 +157,10 @@ export function estimateSessionCost(session: Session): Estimate {
     costUsd: costUsd !== null && Number.isFinite(costUsd) ? costUsd : null,
     pricingVersion: PRICING_VERSION,
     pricingAsOf: PRICING_AS_OF,
-    pricingSourceUrl: PRICING_SOURCE_URL,
+    pricingSourceUrl: row?.sourceUrl ?? PRICING_SOURCE_URL,
     model: session.model,
     pricingConfidence,
+    pricingProvenance: row ? rowProvenance(row) : undefined,
     includesCacheTokens: true,
     warnings: warnings.length > 0 ? warnings : undefined,
   };

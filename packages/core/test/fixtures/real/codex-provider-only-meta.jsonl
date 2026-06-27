@@ -1,0 +1,4 @@
+{"timestamp":"2026-06-26T18:14:00.000Z","type":"session_meta","payload":{"id":"codex-provider-only","cwd":"/Users/example/demo-app","model_provider":"openai","timestamp":"2026-06-26T18:14:00.000Z"}}
+{"timestamp":"2026-06-26T18:14:01.000Z","type":"turn_context","payload":{"turn_id":"turn-1","cwd":"/Users/example/demo-app","model":"gpt-5.5"}}
+{"timestamp":"2026-06-26T18:14:02.000Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Fix auth"}]}}
+{"timestamp":"2026-06-26T18:14:03.000Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":1000,"output_tokens":200,"total_tokens":1200}}}}

@@ -21,10 +21,36 @@
         "totalTokens": {
           "type": "number"
         },
-        "knownCostUsd": {
+        "loggedCostUsd": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "loggedSessionCount": {
           "type": "number"
         },
-        "unknownCostSessionCount": {
+        "estimatedCostUsd": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "estimatedSessionCount": {
+          "type": "number"
+        },
+        "unpricedSessionCount": {
+          "type": "number"
+        },
+        "unpricedTokens": {
           "type": "number"
         },
         "byTool": {
@@ -107,8 +133,12 @@
         "sessionCount",
         "turnCount",
         "totalTokens",
-        "knownCostUsd",
-        "unknownCostSessionCount",
+        "loggedCostUsd",
+        "loggedSessionCount",
+        "estimatedCostUsd",
+        "estimatedSessionCount",
+        "unpricedSessionCount",
+        "unpricedTokens",
         "byTool",
         "byProject",
         "mostActiveDays"

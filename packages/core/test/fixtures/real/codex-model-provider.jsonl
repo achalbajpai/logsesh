@@ -1,0 +1,5 @@
+{"timestamp":"2026-06-15T10:00:00.000Z","type":"session_meta","payload":{"id":"real-codex-session","cwd":"/Users/example/demo-app","model":"gpt-5.3-codex","model_provider":"openai","timestamp":"2026-06-15T10:00:00.000Z"}}
+{"timestamp":"2026-06-15T10:00:01.000Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Fix the auth bug in middleware"}]}}
+{"timestamp":"2026-06-15T10:00:02.000Z","type":"response_item","payload":{"type":"function_call","call_id":"call-shell-1","name":"shell","arguments":"{\"cmd\":\"pnpm test auth\"}"}}
+{"timestamp":"2026-06-15T10:00:03.000Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call-shell-1","output":"2 passed"}}
+{"timestamp":"2026-06-15T10:00:04.000Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":500,"output_tokens":120,"cached_input_tokens":50,"reasoning_output_tokens":30,"total_tokens":700}}}}

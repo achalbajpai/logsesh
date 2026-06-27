@@ -129,6 +129,49 @@
             "unknown"
           ]
         },
+        "pricingProvenance": {
+          "type": "object",
+          "properties": {
+            "provider": {
+              "type": "string"
+            },
+            "model": {
+              "type": "string"
+            },
+            "sourceUrl": {
+              "type": "string"
+            },
+            "verifiedAt": {
+              "type": "string"
+            },
+            "effectiveFrom": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "current",
+                "historical",
+                "retired"
+              ]
+            },
+            "availability": {
+              "type": "string",
+              "enum": [
+                "available",
+                "restricted",
+                "retired"
+              ]
+            }
+          },
+          "required": [
+            "provider",
+            "model",
+            "sourceUrl",
+            "verifiedAt"
+          ],
+          "additionalProperties": false
+        },
         "includesCacheTokens": {
           "type": "boolean"
         },

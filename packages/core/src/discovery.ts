@@ -1,6 +1,6 @@
 import type { Adapter, DiscoverOptions, Session, SessionFile, ToolName, Warning } from "./types.js";
 import { getEnabledAdapters } from "./adapters/index.js";
-import { matchesQuery, parseQuery } from "./query.js";
+import { type ParsedQuery, hasTextQuery, matchesQuery, parseQuery } from "./query.js";
 
 export async function* discoverFiles(
   opts: DiscoverOptions,
@@ -60,6 +60,10 @@ export function parseDateFilter(value: string | undefined): Date | undefined {
   return Number.isNaN(parsed.getTime()) ? undefined : parsed;
 }
 
+function looksLikeProjectPath(filter: string): boolean {
+  return filter.includes("/") || filter.startsWith("~") || filter.startsWith(".");
+}
+
 export function matchesProject(
   sessionPath: string | undefined,
   filter: string | undefined,
@@ -68,9 +72,18 @@ export function matchesProject(
   if (!sessionPath) return false;
   const normalizedSession = sessionPath.replace(/\\/g, "/").replace(/\/$/, "");
   const normalizedFilter = filter.replace(/\\/g, "/").replace(/\/$/, "");
-  return (
-    normalizedSession === normalizedFilter || normalizedSession.startsWith(`${normalizedFilter}/`)
-  );
+
+  if (looksLikeProjectPath(normalizedFilter)) {
+    return (
+      normalizedSession === normalizedFilter || normalizedSession.startsWith(`${normalizedFilter}/`)
+    );
+  }
+
+  const needle = normalizedFilter.toLowerCase();
+  const segments = normalizedSession.split("/").filter(Boolean);
+  if (segments.some((segment) => segment.toLowerCase() === needle)) return true;
+  const basename = segments[segments.length - 1] ?? "";
+  return basename.toLowerCase() === needle;
 }
 
 export function matchesTool(tool: ToolName, filter: ToolName[] | undefined): boolean {
@@ -92,13 +105,41 @@ export function matchesDateRange(
   return true;
 }
 
-export function matchesSessionQuery(session: Session, query?: string): boolean {
-  if (!query?.trim()) return true;
-  const haystack = session.turns
+function sessionTranscriptHaystack(session: Session): string {
+  return session.turns
     .filter((t) => t.role === "user" || t.role === "assistant")
     .flatMap((t) => t.content)
     .filter((b) => b.kind === "text")
     .map((b) => (b.kind === "text" ? b.text : ""))
     .join("\n");
-  return matchesQuery(haystack, parseQuery(query));
+}
+
+export function matchesSessionFilters(
+  session: Session,
+  parsed: ParsedQuery,
+  projectFilter?: string,
+): boolean {
+  if (projectFilter && !matchesProject(session.projectPath, projectFilter)) return false;
+  if (parsed.fields.project?.length) {
+    const matchesProjectField = parsed.fields.project.some((value) =>
+      matchesProject(session.projectPath, value),
+    );
+    if (!matchesProjectField) return false;
+  }
+  return true;
+}
+
+export function matchesSessionTextQuery(session: Session, parsed: ParsedQuery): boolean {
+  if (!hasTextQuery(parsed)) return true;
+  return matchesQuery(sessionTranscriptHaystack(session), parsed);
+}
+
+export function matchesSessionQuery(
+  session: Session,
+  query?: string,
+  projectFilter?: string,
+): boolean {
+  const parsed = parseQuery(query ?? "");
+  if (!matchesSessionFilters(session, parsed, projectFilter)) return false;
+  return matchesSessionTextQuery(session, parsed);
 }

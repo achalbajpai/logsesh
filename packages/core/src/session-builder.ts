@@ -108,7 +108,7 @@ function boundToolOutput(
   try {
     serialized = JSON.stringify(output);
   } catch {
-    serialized = String(output);
+    serialized = "[unserializable output]";
   }
 
   if (serialized.length <= maxChars) {

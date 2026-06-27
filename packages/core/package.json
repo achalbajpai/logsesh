@@ -1,18 +1,18 @@
 {
   "name": "@logsesh/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Parse and normalize AI coding agent session logs",
   "type": "module",
   "license": "MIT",
   "author": "Achal",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/logsesh/logsesh.git",
+    "url": "git+https://github.com/achalbajpai/logsesh.git",
     "directory": "packages/core"
   },
-  "homepage": "https://github.com/logsesh/logsesh/tree/main/packages/core#readme",
+  "homepage": "https://github.com/achalbajpai/logsesh/tree/main/packages/core#readme",
   "bugs": {
-    "url": "https://github.com/logsesh/logsesh/issues"
+    "url": "https://github.com/achalbajpai/logsesh/issues"
   },
   "keywords": [
     "claude-code",

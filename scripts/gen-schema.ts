@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import {
   debugEnvelopeSchema,
+  doctorEnvelopeSchema,
   jsonExportEnvelopeSchema,
   jsonlRecordSchema,
   listEnvelopeSchema,
@@ -22,6 +23,7 @@ const schemas: Record<string, z.ZodType> = {
   "search-envelope": searchEnvelopeSchema,
   "stats-envelope": statsEnvelopeSchema,
   "debug-envelope": debugEnvelopeSchema,
+  "doctor-envelope": doctorEnvelopeSchema,
   "json-export-envelope": jsonExportEnvelopeSchema,
   "jsonl-record": jsonlRecordSchema,
 };

@@ -1,13 +1,30 @@
 import type { Session, StatsReport } from "./types.js";
 import { anonymizePath } from "./util.js";
 
+function sessionTokens(session: Session): number {
+  return (
+    session.usage?.totalTokens ??
+    (session.usage
+      ? (session.usage.inputTokens ?? 0) +
+        (session.usage.outputTokens ?? 0) +
+        (session.usage.cacheReadTokens ?? 0) +
+        (session.usage.cacheWriteTokens ?? 0) +
+        (session.usage.reasoningTokens ?? 0)
+      : 0)
+  );
+}
+
 export class StatsAggregator {
   useEstimates = false;
   sessionCount = 0;
   turnCount = 0;
   totalTokens = 0;
-  knownCostUsd = 0;
-  unknownCostSessionCount = 0;
+  loggedCostUsd = 0;
+  loggedSessionCount = 0;
+  estimatedCostUsd = 0;
+  estimatedSessionCount = 0;
+  unpricedSessionCount = 0;
+  unpricedTokens = 0;
   byTool: StatsReport["byTool"] = {};
   byProject: StatsReport["byProject"] = {};
   dayCounts = new Map<string, { sessions: number; turns: number }>();
@@ -16,23 +33,18 @@ export class StatsAggregator {
     this.sessionCount++;
     this.turnCount += session.turns.length;
 
-    const tokens =
-      session.usage?.totalTokens ??
-      (session.usage
-        ? (session.usage.inputTokens ?? 0) +
-          (session.usage.outputTokens ?? 0) +
-          (session.usage.cacheReadTokens ?? 0) +
-          (session.usage.cacheWriteTokens ?? 0) +
-          (session.usage.reasoningTokens ?? 0)
-        : 0);
+    const tokens = sessionTokens(session);
     this.totalTokens += tokens;
 
     if (session.costUsd !== null) {
-      this.knownCostUsd += session.costUsd;
+      this.loggedCostUsd += session.costUsd;
+      this.loggedSessionCount++;
     } else if (this.useEstimates && typeof session.estimate?.costUsd === "number") {
-      this.knownCostUsd += session.estimate.costUsd;
+      this.estimatedCostUsd += session.estimate.costUsd;
+      this.estimatedSessionCount++;
     } else {
-      this.unknownCostSessionCount++;
+      this.unpricedSessionCount++;
+      this.unpricedTokens += tokens;
     }
 
     const tool = session.tool;
@@ -66,8 +78,13 @@ export class StatsAggregator {
       sessionCount: this.sessionCount,
       turnCount: this.turnCount,
       totalTokens: this.totalTokens,
-      knownCostUsd: this.knownCostUsd,
-      unknownCostSessionCount: this.unknownCostSessionCount,
+      loggedCostUsd: this.loggedSessionCount > 0 ? this.loggedCostUsd : null,
+      loggedSessionCount: this.loggedSessionCount,
+      estimatedCostUsd:
+        this.useEstimates && this.estimatedSessionCount > 0 ? this.estimatedCostUsd : null,
+      estimatedSessionCount: this.estimatedSessionCount,
+      unpricedSessionCount: this.unpricedSessionCount,
+      unpricedTokens: this.unpricedTokens,
       byTool: this.byTool,
       byProject: this.byProject,
       mostActiveDays,

@@ -12,25 +12,48 @@ import { detectRootAccess } from "../fs-walk.js";
 import { readdir, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { z } from "zod";
 
-const ADAPTER_VERSION = "0.1.0-experimental";
+const ADAPTER_VERSION = "0.1.1-experimental";
 
-interface GeminiLine {
-  role?: string;
-  timestamp?: string;
-  model?: string;
-  modelVersion?: string;
-  parts?: Array<
-    | { text?: string }
-    | { functionCall?: { id?: string; name?: string; args?: unknown } }
-    | { functionResponse?: { id?: string; name?: string; response?: unknown } }
-  >;
-  usageMetadata?: {
-    promptTokenCount?: number;
-    candidatesTokenCount?: number;
-    totalTokenCount?: number;
-  };
-}
+const geminiLineSchema = z.object({
+  role: z.string().optional(),
+  timestamp: z.string().optional(),
+  model: z.string().optional(),
+  modelVersion: z.string().optional(),
+  parts: z
+    .array(
+      z.union([
+        z.object({ text: z.string().optional() }),
+        z.object({
+          functionCall: z
+            .object({
+              id: z.string().optional(),
+              name: z.string().optional(),
+              args: z.unknown().optional(),
+            })
+            .optional(),
+        }),
+        z.object({
+          functionResponse: z
+            .object({
+              id: z.string().optional(),
+              name: z.string().optional(),
+              response: z.unknown().optional(),
+            })
+            .optional(),
+        }),
+      ]),
+    )
+    .optional(),
+  usageMetadata: z
+    .object({
+      promptTokenCount: z.number().optional(),
+      candidatesTokenCount: z.number().optional(),
+      totalTokenCount: z.number().optional(),
+    })
+    .optional(),
+});
 
 function geminiRoot(opts: DiscoverOptions): string {
   return opts.roots?.gemini ?? join(homedir(), ".gemini", "tmp");
@@ -39,6 +62,18 @@ function geminiRoot(opts: DiscoverOptions): string {
 export const geminiAdapter: Adapter = {
   tool: "gemini" as ToolName,
   adapterVersion: ADAPTER_VERSION,
+  capabilities: {
+    discovery: "experimental",
+    transcript: "partial",
+    toolCalls: "partial",
+    usage: "partial",
+    model: "partial",
+    reasoning: "none",
+    notes: [
+      "Gemini CLI log format is experimental and may change.",
+      "Usage metadata is captured when present; token totals may be incomplete.",
+    ],
+  },
 
   async detect(): Promise<boolean> {
     const { accessible } = await detectRootAccess(geminiRoot({}), "gemini");
@@ -89,7 +124,7 @@ export const geminiAdapter: Adapter = {
     const readResult = await readJsonlLines(
       file.path,
       (line, lineNumber) => {
-        const parsed = parseJsonLine<GeminiLine>(line, lineNumber, file.path);
+        const parsed = parseJsonLine(line, lineNumber, file.path);
         if (!parsed.ok) {
           builder.addWarning({
             code: "malformed_line",
@@ -103,7 +138,21 @@ export const geminiAdapter: Adapter = {
           return;
         }
 
-        const record = parsed.value;
+        const lineParsed = geminiLineSchema.safeParse(parsed.value);
+        if (!lineParsed.success) {
+          builder.addWarning({
+            code: "invalid_line_shape",
+            message: `Line ${lineNumber}: invalid Gemini record shape`,
+            severity: "warn",
+            scope: "parse",
+            sourcePath: file.path,
+            sessionId,
+            line: lineNumber,
+          });
+          return;
+        }
+
+        const record = lineParsed.data;
         model = record.model ?? record.modelVersion ?? model;
         const role = record.role;
         if (role !== "user" && role !== "model") return;
