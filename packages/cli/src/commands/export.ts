@@ -1,6 +1,6 @@
 import { type WriteStream, createWriteStream } from "node:fs";
 import { finished } from "node:stream/promises";
-import type { ExportSession, ExportTurn, Session, Warning } from "@logsesh/core";
+import type { ExportSession, Session, Warning } from "@logsesh/core";
 import {
   applyEstimate,
   beginJsonExportStream,
@@ -26,7 +26,7 @@ const EXPORT_FORMATS = ["json", "jsonl", "markdown", "csv"] as const;
 type ExportFormat = (typeof EXPORT_FORMATS)[number];
 
 export interface ExportOptions {
-  format: ExportFormat | string;
+  format: string;
   granularity?: "session" | "turn";
   summaryOnly?: boolean;
   out?: string;
@@ -37,6 +37,8 @@ export interface ExportOptions {
   until?: string;
   query?: string;
   redact?: boolean;
+  allowSensitive?: boolean;
+  noRedact?: boolean;
   redactPattern?: string[];
   includeReasoning?: boolean;
   anonymizePaths?: boolean;
@@ -68,6 +70,12 @@ function parseExportFormat(value: string): ExportFormat | null {
   return (EXPORT_FORMATS as readonly string[]).includes(value) ? (value as ExportFormat) : null;
 }
 
+function shouldRedact(opts: ExportOptions): boolean {
+  if (opts.summaryOnly) return Boolean(opts.redact);
+  if (opts.allowSensitive || opts.noRedact) return false;
+  return true;
+}
+
 export async function runExport(opts: ExportOptions): Promise<number> {
   const format = parseExportFormat(String(opts.format));
   if (!format) {
@@ -84,8 +92,9 @@ export async function runExport(opts: ExportOptions): Promise<number> {
   const pipeline = pipelineOpts(opts);
   if (!pipeline) return 2;
 
-  if (!opts.redact && !opts.summaryOnly) {
-    console.error("Warning: exporting full transcript without --redact may contain secrets.");
+  const redact = shouldRedact(opts);
+  if (!opts.summaryOnly && !redact) {
+    console.error("Warning: exporting full transcript with --allow-sensitive may contain secrets.");
   }
 
   const sanitizeOpts = sanitizeOptsFromExport(opts);
@@ -104,7 +113,7 @@ export async function runExport(opts: ExportOptions): Promise<number> {
     let s = session;
     if (opts.estimateCost) s = applyEstimate(s);
     let exported: ExportSession = sanitizeForExport(s, sanitizeOpts);
-    if (opts.redact) exported = redactUnknown(exported, patterns) as ExportSession;
+    if (redact) exported = redactUnknown(exported, patterns);
     return exported;
   };
 
@@ -126,7 +135,7 @@ export async function runExport(opts: ExportOptions): Promise<number> {
   }
 
   if (opts.out) {
-    await exportToFile(format, opts, pipeline, sanitize, warnings, pubWarnings, granular);
+    await exportToFile(format, opts, pipeline, sanitize, warnings, pubWarnings, granular, opts.out);
     return 0;
   }
 
@@ -141,7 +150,7 @@ export async function runExport(opts: ExportOptions): Promise<number> {
       if (!result.session) continue;
       const exported = sanitize(result.session);
       if (granular === "turn") {
-        for (const turn of exported.turns) stream.writeRecord(turn as ExportTurn);
+        for (const turn of exported.turns) stream.writeRecord(turn);
       } else {
         stream.writeRecord(exported);
       }
@@ -169,9 +178,7 @@ export async function runExport(opts: ExportOptions): Promise<number> {
     if (format === "jsonl") {
       if (granular === "turn") {
         for (const turn of exported.turns) {
-          process.stdout.write(
-            serializeJsonlRecord(exportJsonlRecord(turn as ExportTurn, pubWarnings())) + "\n",
-          );
+          process.stdout.write(serializeJsonlRecord(exportJsonlRecord(turn, pubWarnings())) + "\n");
         }
       } else {
         process.stdout.write(
@@ -181,9 +188,7 @@ export async function runExport(opts: ExportOptions): Promise<number> {
     } else if (format === "markdown") {
       if (granular === "turn") {
         for (const turn of exported.turns) {
-          process.stdout.write(
-            exportTurnMarkdown(turn as ExportTurn, exported, opts.unsafeRaw) + "\n",
-          );
+          process.stdout.write(exportTurnMarkdown(turn, exported, opts.unsafeRaw) + "\n");
         }
       } else {
         process.stdout.write(exportSessionMarkdown(exported, opts.unsafeRaw) + "\n");
@@ -222,8 +227,8 @@ async function exportToFile(
   warnings: Warning[],
   pubWarnings: () => ReturnType<typeof toPublicWarnings>,
   granular: "session" | "turn",
+  outPath: string,
 ): Promise<void> {
-  const outPath = opts.out!;
   const ws = await openExportStream(outPath, opts.force);
 
   try {
@@ -238,7 +243,7 @@ async function exportToFile(
         if (!result.session) continue;
         const exported = sanitize(result.session);
         if (granular === "turn") {
-          for (const turn of exported.turns) stream.writeRecord(turn as ExportTurn);
+          for (const turn of exported.turns) stream.writeRecord(turn);
         } else {
           stream.writeRecord(exported);
         }
@@ -261,8 +266,7 @@ async function exportToFile(
         if (format === "jsonl") {
           if (granular === "turn") {
             for (const turn of exported.turns) {
-              chunk +=
-                serializeJsonlRecord(exportJsonlRecord(turn as ExportTurn, pubWarnings())) + "\n";
+              chunk += serializeJsonlRecord(exportJsonlRecord(turn, pubWarnings())) + "\n";
             }
           } else {
             chunk = serializeJsonlRecord(exportJsonlRecord(exported, pubWarnings())) + "\n";
@@ -271,7 +275,7 @@ async function exportToFile(
           chunk =
             granular === "turn"
               ? exported.turns
-                  .map((turn) => exportTurnMarkdown(turn as ExportTurn, exported, opts.unsafeRaw))
+                  .map((turn) => exportTurnMarkdown(turn, exported, opts.unsafeRaw))
                   .join("\n") + "\n"
               : exportSessionMarkdown(exported, opts.unsafeRaw) + "\n";
         }
@@ -283,6 +287,6 @@ async function exportToFile(
   } catch (err) {
     ws.destroy();
     if (err instanceof Error && err.message.includes("Refusing to overwrite")) throw err;
-    throw err;
+    throw err instanceof Error ? err : new Error(String(err));
   }
 }

@@ -20,7 +20,11 @@ export interface SearchOptions extends SharedCommandOptions {
 }
 
 export async function runSearch(opts: SearchOptions): Promise<number> {
-  const resolved = resolvePipelineOptions(opts);
+  const resolved = resolvePipelineOptions({
+    ...opts,
+    query: opts.searchQuery,
+    queryTextFilter: false,
+  });
   if (!resolved.ok) {
     console.error(resolved.error);
     return 2;

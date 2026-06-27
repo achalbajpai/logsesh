@@ -44,5 +44,6 @@ export async function runList(opts: SharedCommandOptions): Promise<number> {
     printListTable(sessions);
   }
 
+  if (opts.json && sessions.length === 0) return 1;
   return 0;
 }

@@ -1,22 +1,47 @@
-import type { Estimate, SessionSummary, ToolName, Warning } from "@logsesh/core";
-import { anonymizePath, anonymizePathsInText } from "@logsesh/core";
+import type { Estimate, SessionSummary, StatsReport, ToolName, Warning } from "@logsesh/core";
+import { anonymizePath, anonymizePathsInText, summarizeWarnings } from "@logsesh/core";
 import pc from "picocolors";
 
 const TOOL_NAMES: ToolName[] = ["claude-code", "codex", "gemini"];
 
-export function humanizeTokens(n: number | undefined): string {
+function humanizeTokens(n: number | undefined): string {
   if (n === undefined) return "-";
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
   return String(n);
 }
 
-export function formatDate(iso: string | undefined): string {
+function formatDate(iso: string | undefined): string {
   if (!iso) return "-";
   return iso.slice(0, 10);
 }
 
-export function formatCost(costUsd: number | null, estimate?: Estimate): string {
+export function formatLoggedCost(stats: StatsReport): string {
+  if (stats.loggedCostUsd === null) return "unknown (local logs have no USD)";
+  return `$${stats.loggedCostUsd.toFixed(2)}`;
+}
+
+export function formatEstimatedCost(stats: StatsReport, usedEstimates: boolean): string {
+  if (!usedEstimates) return "not computed (use --estimate-cost)";
+  if (stats.estimatedCostUsd === null) {
+    return "unknown (no priced model for matched sessions)";
+  }
+  const amount = `~$${stats.estimatedCostUsd.toFixed(2)} est`;
+  if (stats.unpricedSessionCount > 0) {
+    const pricedSessionCount = stats.loggedSessionCount + stats.estimatedSessionCount;
+    return `${amount} (${pricedSessionCount}/${stats.sessionCount} sessions priced)`;
+  }
+  return amount;
+}
+
+export function formatUnpricedTokens(stats: StatsReport): string | null {
+  if (stats.unpricedSessionCount === 0) return null;
+  const pct =
+    stats.totalTokens > 0 ? ((stats.unpricedTokens / stats.totalTokens) * 100).toFixed(1) : "0.0";
+  return `${humanizeTokens(stats.unpricedTokens)} (${pct}% of total)`;
+}
+
+function formatCost(costUsd: number | null, estimate?: Estimate): string {
   if (typeof estimate?.costUsd === "number") {
     return pc.yellow(`~$${estimate.costUsd.toFixed(2)} est`);
   }
@@ -50,8 +75,19 @@ export function printListTable(sessions: SessionSummary[]): void {
 }
 
 export function printWarningsToStderr(warnings: Warning[]): void {
-  for (const warning of warnings) {
+  for (const warning of summarizeWarnings(warnings)) {
     const message = anonymizePathsInText(warning.message);
+    if (warning.count > 1) {
+      const location = warning.sourcePath
+        ? ` in ${anonymizePath(warning.sourcePath)}`
+        : warning.sessionId
+          ? ` in session ${warning.sessionId}`
+          : "";
+      console.error(
+        `Warning [${warning.code}]: ${message} (${warning.count} occurrences${location})`,
+      );
+      continue;
+    }
     const location = warning.sourcePath ? ` (${anonymizePath(warning.sourcePath)})` : "";
     console.error(`Warning [${warning.code}]: ${message}${location}`);
   }

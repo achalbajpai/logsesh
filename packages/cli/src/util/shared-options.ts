@@ -3,10 +3,16 @@ import type { Command } from "commander";
 export function sharedOptions(cmd: Command): Command {
   return cmd
     .option("--tool <tools>", "Comma-separated tools: claude-code,codex,gemini")
-    .option("--project <path>", "Filter by project path prefix")
+    .option(
+      "--project <name>",
+      "Filter by project path or directory name (same as project:name in --query)",
+    )
     .option("--since <date>", "Filter sessions since (ISO date or e.g. 7d)")
     .option("--until <date>", "Filter sessions until")
-    .option("--query <text>", "Filter sessions matching query terms")
+    .option(
+      "--query <text>",
+      'Filter sessions (e.g. auth, project:myapp, project:myapp AND "rate limit")',
+    )
     .option("--json", "Machine-readable JSON output")
     .option("--estimate-cost", "Show estimated cost (never replaces canonical costUsd)")
     .option("--max-file-bytes <n>", "Skip files larger than N bytes", parseInt)

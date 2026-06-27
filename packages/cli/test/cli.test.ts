@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
+import { unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -143,5 +144,100 @@ describe("CLI", () => {
     const res = run(["search", "hello", "--redact-pattern", "("]);
     expect(res.status).toBe(2);
     expect(res.stderr).toContain("Invalid redact pattern");
+  });
+
+  it("doctor emits DoctorEnvelope JSON", () => {
+    const fixtureRoot = join(root, "packages/core/test/fixtures/claude");
+    const res = run(["doctor", "--json", "--roots", `claude-code:${fixtureRoot}`]);
+    expect(res.status).toBe(0);
+    const body = JSON.parse(res.stdout);
+    expect(body.format).toBe("logsesh.doctor.v1");
+    expect(body.pricing.modelCount).toBeGreaterThan(0);
+    expect(body.tools.some((t: { tool: string }) => t.tool === "claude-code")).toBe(true);
+  });
+
+  it("export redacts transcript by default", () => {
+    const fixtureRoot = join(root, "packages/core/test/fixtures/claude");
+    const res = run([
+      "export",
+      "--format",
+      "json",
+      "--roots",
+      `claude-code:${fixtureRoot}`,
+      "--tool",
+      "claude-code",
+    ]);
+    expect(res.status).toBe(0);
+    expect(res.stderr).not.toContain("without --redact");
+  });
+
+  const claudeFixtureRoot = () => join(root, "packages/core/test/fixtures/claude");
+  const claudeRoots = () => [
+    "--roots",
+    `claude-code:${claudeFixtureRoot()}`,
+    "--tool",
+    "claude-code",
+  ];
+
+  it("list --json emits ListEnvelope with sessions", () => {
+    const res = run(["list", "--json", ...claudeRoots()]);
+    expect(res.status).toBe(0);
+    const body = JSON.parse(res.stdout);
+    expect(body.format).toBe("logsesh.list.v1");
+    expect(body.sessions.length).toBeGreaterThan(0);
+  });
+
+  it("list --json returns exit 1 when no sessions match", () => {
+    const res = run(["list", "--json", "--query", "zzzznotfound", ...claudeRoots()]);
+    expect(res.status).toBe(1);
+    const body = JSON.parse(res.stdout);
+    expect(body.sessions).toHaveLength(0);
+  });
+
+  it("list human output returns exit 0 when no sessions match", () => {
+    const res = run(["list", "--query", "zzzznotfound", ...claudeRoots()]);
+    expect(res.status).toBe(0);
+  });
+
+  it("stats --json emits StatsEnvelope", () => {
+    const res = run(["stats", "--json", "--estimate-cost", ...claudeRoots()]);
+    expect(res.status).toBe(0);
+    const body = JSON.parse(res.stdout);
+    expect(body.format).toBe("logsesh.stats.v1");
+    expect(body.stats.sessionCount).toBeGreaterThan(0);
+  });
+
+  it("stats --json returns exit 1 when no sessions match", () => {
+    const res = run(["stats", "--json", "--query", "zzzznotfound", ...claudeRoots()]);
+    expect(res.status).toBe(1);
+    const body = JSON.parse(res.stdout);
+    expect(body.stats.sessionCount).toBe(0);
+  });
+
+  it("export --format markdown writes session markdown", () => {
+    const res = run(["export", "--format", "markdown", ...claudeRoots()]);
+    expect(res.status).toBe(0);
+    expect(res.stdout).toMatch(/^# /m);
+  });
+
+  it("export --format jsonl writes one JSON object per line", () => {
+    const res = run(["export", "--format", "jsonl", ...claudeRoots()]);
+    expect(res.status).toBe(0);
+    const lines = res.stdout.trim().split("\n");
+    expect(lines.length).toBeGreaterThan(0);
+    for (const line of lines) {
+      expect(JSON.parse(line)).toBeTruthy();
+    }
+  });
+
+  it("export --out refuses overwrite without --force", () => {
+    const out = join(root, "packages/cli/test/.tmp-export-test.json");
+    const first = run(["export", "--format", "json", "--out", out, ...claudeRoots()]);
+    expect(first.status).toBe(0);
+    const second = run(["export", "--format", "json", "--out", out, ...claudeRoots()]);
+    expect(second.status).toBe(2);
+    expect(second.stderr).toContain("Refusing to overwrite");
+    run(["export", "--format", "json", "--out", out, "--force", ...claudeRoots()]);
+    unlinkSync(out);
   });
 });

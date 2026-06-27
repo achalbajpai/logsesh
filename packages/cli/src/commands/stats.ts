@@ -8,7 +8,12 @@ import {
   statsEnvelopeSchema,
   toPublicWarnings,
 } from "@logsesh/core";
-import { printWarningsToStderr } from "../util/format.js";
+import {
+  formatEstimatedCost,
+  formatLoggedCost,
+  formatUnpricedTokens,
+  printWarningsToStderr,
+} from "../util/format.js";
 import type { SharedCommandOptions } from "../util/options.js";
 import { resolvePipelineOptions } from "../util/pipeline-options.js";
 
@@ -47,9 +52,15 @@ export async function runStats(opts: SharedCommandOptions): Promise<number> {
     console.log(`Sessions: ${stats.sessionCount}`);
     console.log(`Turns: ${stats.turnCount}`);
     console.log(`Tokens: ${stats.totalTokens}`);
-    console.log(`Known cost: $${stats.knownCostUsd.toFixed(2)}`);
-    console.log(`Unknown cost sessions: ${stats.unknownCostSessionCount}`);
+    console.log(`Logged cost: ${formatLoggedCost(stats)}`);
+    console.log(`Estimated cost: ${formatEstimatedCost(stats, !!opts.estimateCost)}`);
+    if (stats.unpricedSessionCount > 0) {
+      console.log(`Unpriced sessions: ${stats.unpricedSessionCount}`);
+      const unpricedTokens = formatUnpricedTokens(stats);
+      if (unpricedTokens) console.log(`Unpriced tokens: ${unpricedTokens}`);
+    }
   }
 
+  if (opts.json && stats.sessionCount === 0) return 1;
   return 0;
 }
