@@ -17,6 +17,7 @@ export const codexLineSchema = z.object({
 export const codexSessionMetaPayloadSchema = z.object({
   id: z.string().optional(),
   cwd: z.string().optional(),
+  model: z.string().optional(),
   model_provider: z.string().optional(),
 });
 

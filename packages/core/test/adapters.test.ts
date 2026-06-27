@@ -20,6 +20,7 @@ describe("claude adapter", () => {
     const session = sessions[0]!;
     expect(session.turns.filter((t) => t.role === "assistant")).toHaveLength(1);
     expect(session.usage?.inputTokens).toBe(10);
+    expect(session.model).toBe("claude-sonnet-4-20250514");
     expect(session.costUsd).toBeNull();
   });
 
@@ -61,6 +62,16 @@ describe("codex adapter", () => {
     }
     expect(sessions[0]?.usage?.totalTokens).toBe(175);
     expect(sessions[0]?.projectPath).toBe("/tmp/project");
+    expect(sessions[0]?.model).toBe("gpt-4.1");
+  });
+
+  it("does not treat a provider name as the model", async () => {
+    const file = join(fixtures, "codex/null-tokens.jsonl");
+    const sessions: Session[] = [];
+    for await (const s of codexAdapter.parse({ path: file, tool: "codex" }, {})) {
+      sessions.push(s);
+    }
+    expect(sessions[0]?.model).toBeUndefined();
   });
 
   it("pairs interleaved function_call output by call_id", async () => {
@@ -105,6 +116,15 @@ describe("gemini adapter", () => {
       sessions.push(s);
     }
     expect(sessions[0]?.warnings?.some((w) => w.code === "file_too_large")).toBe(true);
+  });
+
+  it("captures modelVersion when present", async () => {
+    const file = join(fixtures, "gemini/basic.jsonl");
+    const sessions: Session[] = [];
+    for await (const s of geminiAdapter.parse({ path: file, tool: "gemini" }, {})) {
+      sessions.push(s);
+    }
+    expect(sessions[0]?.model).toBe("gemini-2.5-pro");
   });
 });
 

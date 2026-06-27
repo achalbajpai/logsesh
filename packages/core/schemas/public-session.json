@@ -120,6 +120,15 @@
         "model": {
           "type": "string"
         },
+        "pricingConfidence": {
+          "type": "string",
+          "enum": [
+            "exact",
+            "historical",
+            "fallback",
+            "unknown"
+          ]
+        },
         "includesCacheTokens": {
           "type": "boolean"
         },

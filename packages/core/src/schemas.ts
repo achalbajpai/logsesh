@@ -53,6 +53,7 @@ export const estimateSchema = z.object({
   pricingAsOf: z.string(),
   pricingSourceUrl: z.string().optional(),
   model: z.string().optional(),
+  pricingConfidence: z.enum(["exact", "historical", "fallback", "unknown"]).optional(),
   includesCacheTokens: z.boolean(),
   warnings: z.array(z.string()).optional(),
 });

@@ -11,6 +11,9 @@ const PriceRowSchema = z.object({
 
 const PricingModelRowSchema = PriceRowSchema.extend({
   aliases: z.array(z.string().min(1)).min(1),
+  status: z.enum(["current", "historical", "retired"]).optional(),
+  availability: z.enum(["available", "restricted", "retired"]).optional(),
+  note: z.string().min(1).optional(),
 });
 
 const PricingDataSchema = z.object({
@@ -29,6 +32,7 @@ const PricingDataSchema = z.object({
 });
 
 type PriceRow = z.infer<typeof PriceRowSchema>;
+type PricingConfidence = Estimate["pricingConfidence"];
 
 const DATA = PricingDataSchema.parse(pricingData);
 
@@ -46,16 +50,44 @@ function modelMatchesAlias(model: string, alias: string): boolean {
   return normalized === aliasNorm || normalized.startsWith(`${aliasNorm}-`);
 }
 
+function modelExactlyMatchesAlias(model: string, alias: string): boolean {
+  return normalizeModel(model) === normalizeModel(alias);
+}
+
 function priceForModel(model: string | undefined): {
   price: PriceRow;
   matched: boolean;
   matchedAlias?: string;
+  status?: "current" | "historical" | "retired";
+  availability?: "available" | "restricted" | "retired";
+  note?: string;
 } {
   if (!model) return { price: DATA.default, matched: false };
   for (const row of DATA.models) {
     for (const alias of row.aliases) {
+      if (modelExactlyMatchesAlias(model, alias)) {
+        return {
+          price: row,
+          matched: true,
+          matchedAlias: alias,
+          status: row.status,
+          availability: row.availability,
+          note: row.note,
+        };
+      }
+    }
+  }
+  for (const row of DATA.models) {
+    for (const alias of row.aliases) {
       if (modelMatchesAlias(model, alias)) {
-        return { price: row, matched: true, matchedAlias: alias };
+        return {
+          price: row,
+          matched: true,
+          matchedAlias: alias,
+          status: row.status,
+          availability: row.availability,
+          note: row.note,
+        };
       }
     }
   }
@@ -63,13 +95,28 @@ function priceForModel(model: string | undefined): {
 }
 
 export function estimateSessionCost(session: Session): Estimate {
-  const { price, matched, matchedAlias } = priceForModel(session.model);
+  const { price, matched, matchedAlias, status, availability, note } = priceForModel(session.model);
   const usage = session.usage ?? {};
   const warnings: string[] = [];
+  let pricingConfidence: PricingConfidence = "exact";
 
-  if (!matched && session.model) {
+  if (!session.model) {
+    pricingConfidence = "unknown";
+    warnings.push("missing model; cost estimate unavailable because no model was parsed");
+  } else if (!matched) {
+    pricingConfidence = "fallback";
     warnings.push(
-      `stale or unknown pricing for model ${session.model}; using default table from ${PRICING_AS_OF} (${PRICING_SOURCE_URL})`,
+      `stale or unknown pricing for model ${session.model}; cost estimate unavailable from pricing table ${PRICING_AS_OF} (${PRICING_SOURCE_URL})`,
+    );
+  } else if (status === "retired") {
+    pricingConfidence = "historical";
+    warnings.push(
+      `retired model ${session.model}; requests to retired models may fail. ${note ?? "Kept only for estimating old local logs."}`,
+    );
+  } else if (status === "historical") {
+    pricingConfidence = "historical";
+    warnings.push(
+      `historical pricing for model ${session.model}; verify current provider pricing before billing or accounting use`,
     );
   } else if (
     matched &&
@@ -79,6 +126,13 @@ export function estimateSessionCost(session: Session): Estimate {
   ) {
     warnings.push(`matched pricing alias ${matchedAlias} for model ${session.model}`);
   }
+  if (availability === "restricted" && session.model) {
+    warnings.push(
+      `restricted availability for model ${session.model}; ${note ?? "verify access before use"}`,
+    );
+  } else if (availability === "retired" && session.model && status !== "retired") {
+    warnings.push(`retired model ${session.model}; ${note ?? "kept for historical log estimates"}`);
+  }
 
   const input = usage.inputTokens ?? 0;
   const output = usage.outputTokens ?? 0;
@@ -86,17 +140,20 @@ export function estimateSessionCost(session: Session): Estimate {
   const cacheWrite = usage.cacheWriteTokens ?? 0;
 
   const costUsd =
-    (input / 1_000_000) * price.input +
-    (output / 1_000_000) * price.output +
-    (cacheRead / 1_000_000) * (price.cacheRead ?? price.input * 0.1) +
-    (cacheWrite / 1_000_000) * (price.cacheWrite ?? price.input);
+    pricingConfidence === "unknown" || pricingConfidence === "fallback"
+      ? null
+      : (input / 1_000_000) * price.input +
+        (output / 1_000_000) * price.output +
+        (cacheRead / 1_000_000) * (price.cacheRead ?? price.input * 0.1) +
+        (cacheWrite / 1_000_000) * (price.cacheWrite ?? price.input);
 
   return {
-    costUsd: Number.isFinite(costUsd) ? costUsd : null,
+    costUsd: costUsd !== null && Number.isFinite(costUsd) ? costUsd : null,
     pricingVersion: PRICING_VERSION,
     pricingAsOf: PRICING_AS_OF,
     pricingSourceUrl: PRICING_SOURCE_URL,
     model: session.model,
+    pricingConfidence,
     includesCacheTokens: true,
     warnings: warnings.length > 0 ? warnings : undefined,
   };

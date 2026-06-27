@@ -25,6 +25,7 @@ import {
 } from "./codex-schemas.js";
 
 const ADAPTER_VERSION = "0.1.0";
+const PROVIDER_NAMES = new Set(["anthropic", "azure", "google", "openai", "openrouter"]);
 
 interface CodexTokenUsage {
   input_tokens?: number;
@@ -46,6 +47,21 @@ function mapCodexUsage(u: CodexTokenUsage): Usage {
     reasoningTokens: u.reasoning_output_tokens,
     totalTokens: u.total_tokens,
   };
+}
+
+function looksLikeModelId(value: string): boolean {
+  const normalized = value.toLowerCase();
+  return (
+    !PROVIDER_NAMES.has(normalized) &&
+    /^(claude|codex|gemini|gpt|o\d)/.test(normalized) &&
+    /[\d-]/.test(normalized)
+  );
+}
+
+function codexModelFromMeta(meta: { model?: string; model_provider?: string }): string | undefined {
+  if (meta.model) return meta.model;
+  if (meta.model_provider && looksLikeModelId(meta.model_provider)) return meta.model_provider;
+  return undefined;
 }
 
 function messageText(content: unknown): string {
@@ -145,7 +161,7 @@ export const codexAdapter: Adapter = {
           if (!meta) return;
           if (meta.id) sessionId = meta.id;
           if (meta.cwd) projectPath = meta.cwd;
-          if (meta.model_provider) model = meta.model_provider;
+          model = codexModelFromMeta(meta) ?? model;
           return;
         }
 

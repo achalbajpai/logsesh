@@ -32,9 +32,11 @@ interface ClaudeLine {
   timestamp?: string;
   cwd?: string;
   sessionId?: string;
+  model?: string;
   message?: {
     id?: string;
     role?: string;
+    model?: string;
     content?: string | ClaudeContentBlock[];
     usage?: {
       input_tokens?: number;
@@ -120,6 +122,7 @@ export const claudeCodeAdapter: Adapter = {
     });
 
     let resolvedProjectPath = projectPath;
+    let model: string | undefined;
 
     const readResult = await readJsonlLines(
       file.path,
@@ -142,6 +145,7 @@ export const claudeCodeAdapter: Adapter = {
         if (!record.type || IGNORED_TYPES.has(record.type)) return;
 
         if (record.cwd) resolvedProjectPath = record.cwd;
+        model = record.model ?? record.message?.model ?? model;
 
         if (record.type === "user" && record.message) {
           const blocks = mapClaudeUserContent(record.message.content);
@@ -212,6 +216,7 @@ export const claudeCodeAdapter: Adapter = {
 
     const session = builder.finalize();
     session.projectPath = resolvedProjectPath;
+    session.model = model;
     yield session;
   },
 };

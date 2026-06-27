@@ -55,7 +55,7 @@ Run `logsesh <command> --help` for full options.
 - Search snippets are redacted by default.
 - Reasoning is excluded unless `--include-reasoning` is set.
 - Full exports warn unless `--redact` is set.
-- Logged `costUsd` is never overwritten; estimates are labeled.
+- Logged `costUsd` is never overwritten; estimates include pricing confidence.
 
 ## Library
 
@@ -73,7 +73,7 @@ for await (const { session } of runPipeline({ toolFilter: ["codex"] })) {
 ```
 
 Schemas are published under `@logsesh/core/schemas/*`.
-Pricing data is published under `@logsesh/core/pricing/*`.
+Pricing data is published under `@logsesh/core/pricing/*`. Cost estimates are exact only when the parsed session includes a known current model; officially priced older rows are preserved as historical estimates.
 
 ## Develop
 

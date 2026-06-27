@@ -39,6 +39,7 @@ export interface Estimate {
   pricingAsOf: string;
   pricingSourceUrl?: string;
   model?: string;
+  pricingConfidence?: "exact" | "historical" | "fallback" | "unknown";
   includesCacheTokens: boolean;
   warnings?: string[];
 }

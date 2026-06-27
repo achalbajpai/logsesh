@@ -18,6 +18,8 @@ const ADAPTER_VERSION = "0.1.0-experimental";
 interface GeminiLine {
   role?: string;
   timestamp?: string;
+  model?: string;
+  modelVersion?: string;
   parts?: Array<
     | { text?: string }
     | { functionCall?: { id?: string; name?: string; args?: unknown } }
@@ -72,6 +74,7 @@ export const geminiAdapter: Adapter = {
   async *parse(file: SessionFile, opts: ParseOptions): AsyncIterable<Session> {
     const sessionId = sessionFileNameId(file.path);
     let stepCounter = 0;
+    let model: string | undefined;
 
     const builder = new SessionBuilder({
       tool: "gemini",
@@ -101,6 +104,7 @@ export const geminiAdapter: Adapter = {
         }
 
         const record = parsed.value;
+        model = record.model ?? record.modelVersion ?? model;
         const role = record.role;
         if (role !== "user" && role !== "model") return;
 
@@ -162,6 +166,8 @@ export const geminiAdapter: Adapter = {
       });
     }
 
-    yield builder.finalize();
+    const session = builder.finalize();
+    session.model = model;
+    yield session;
   },
 };

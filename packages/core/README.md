@@ -34,7 +34,7 @@ for await (const { session, warnings } of runPipeline({ toolFilter: ["codex"] })
 | `sanitizeForExport` | remove raw paths and reasoning by default |
 | `searchSession` | search a normalized session |
 | `StatsAggregator` | aggregate session stats |
-| `estimateSessionCost` | add labeled pricing estimates |
+| `estimateSessionCost` | add labeled pricing estimates with confidence |
 
 ## Published Data
 
@@ -44,7 +44,7 @@ import models from "@logsesh/core/pricing/models.json" with { type: "json" };
 ```
 
 Schemas are available under `@logsesh/core/schemas/*`.
-Pricing data is available under `@logsesh/core/pricing/*`.
+Pricing data is available under `@logsesh/core/pricing/*`. Estimates are exact only when the parsed session includes a known current model; officially priced older rows are preserved as historical estimates.
 
 ## License
 
