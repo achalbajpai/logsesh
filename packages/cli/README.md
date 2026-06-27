@@ -1,30 +1,17 @@
 # logsesh
 
-CLI for reading, searching, summarizing, and exporting local AI coding-agent logs.
+Read, search, summarize, and export local AI coding-agent session logs.
 
-No telemetry. No runtime network calls. Private paths and reasoning stay hidden by default.
+No telemetry. No runtime network calls. Paths are anonymized, known secret patterns are redacted, and reasoning is excluded by default.
 
 ## Install
 
-From source (not on npm yet):
-
 ```bash
-git clone https://github.com/achalbajpai/logsesh.git
-cd logsesh
-pnpm install
-pnpm build
-pnpm dev doctor
-```
-
-Requires Node.js `>=22`.
-
-## Start here
-
-```bash
+npm install -g logsesh
 logsesh doctor
 ```
 
-Checks log discovery, adapter health, and the bundled pricing table.
+Requires Node.js `>=22`.
 
 ## Use
 
@@ -35,45 +22,64 @@ logsesh stats --since 30d --estimate-cost
 logsesh export --format markdown --since 30d --out sessions.md
 ```
 
-Transcript exports are **redacted by default**. To export full transcript text, opt in explicitly:
-
-```bash
-logsesh export --format json --since 30d --allow-sensitive --out raw.json
-```
+`doctor` checks log discovery, adapter health, export defaults, and bundled pricing data.
 
 ## Commands
 
 | command | purpose |
 | --- | --- |
-| `doctor` | check log access, adapters, and pricing table |
+| `doctor` | check log access, adapters, export defaults, and pricing data |
 | `list` | show matching sessions |
-| `search` | find text across transcripts (with snippets) |
+| `search` | find transcript text with snippets |
 | `stats` | summarize activity, tokens, and cost |
 | `export` | write JSON, JSONL, Markdown, or CSV |
 
 Run `logsesh <command> --help` for all options.
 
-## Export safety
+## Query Language
 
-Transcript exports (`json`, `jsonl`, `markdown`, turn-level output) redact sensitive patterns **by default**.
+```bash
+logsesh search 'project:myapp "rate limit"'
+logsesh list --query 'project:myapp auth'
+logsesh stats --since 7d --query 'auth AND middleware' --estimate-cost
+```
+
+`--project myapp` is shorthand for `project:myapp` in `--query`. Full paths work too, such as `--project ~/code/myapp`.
+
+## Export Safety
+
+Transcript exports redact known sensitive patterns by default. Paths are anonymized unless you opt out.
 
 | flag | effect |
 | --- | --- |
-| *(default)* | redact secrets/patterns; anonymize paths |
-| `--allow-sensitive` / `--no-redact` | full transcript text |
-| `--redact-pattern <regex>` | add custom redaction pattern (repeatable) |
-| `--include-reasoning` | include thinking/reasoning blocks (sensitive) |
+| default | redact built-in secret patterns and anonymize paths |
+| `--allow-sensitive` / `--no-redact` | export full transcript text |
+| `--redact-pattern <regex>` | add a custom redaction pattern |
+| `--include-reasoning` | include reasoning blocks |
 | `--no-anonymize-paths` | keep raw filesystem paths |
-| `--unsafe-raw` | disable markdown injection neutralization |
+| `--unsafe-raw` | disable Markdown injection neutralization |
 
-Summary-only CSV follows the same path anonymization defaults. Pass `--redact` to apply pattern redaction to summary rows too.
+Summary-only CSV keeps the same path anonymization defaults. Pass `--redact` to apply pattern redaction to summary rows too.
 
-## Privacy
+## Sources
 
-- Paths are anonymized in human output for `list`, `search`, and `stats`.
-- Search snippets are redacted by default.
-- Reasoning is excluded unless `--include-reasoning` or `--search-reasoning` is set.
-- Export redaction is on by default; use `--allow-sensitive` to opt out.
+| tool | default location |
+| --- | --- |
+| Claude Code | `~/.claude/projects/*/*.jsonl` |
+| Codex | `~/.codex/sessions/**/rollout-*.jsonl` |
+| Gemini CLI | experimental adapter |
+
+Override discovery with `--roots tool:path` and repeat it for multiple roots.
+
+## Exit Codes
+
+| code | meaning |
+| --- | --- |
+| `0` | success |
+| `1` | no matching results for `search`, `list --json`, or `stats --json` |
+| `2` | usage, validation, or uncaught runtime error |
+
+Human table output for `list` and `stats` returns `0` even when empty. Use `--json` when scripts need to branch on zero matches.
 
 ## License
 
