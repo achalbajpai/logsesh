@@ -1,14 +1,16 @@
 # logsesh
 
-read and export ai coding agent session logs. local-first, no telemetry.
+Local-first CLI for reading, searching, and exporting AI coding-agent session logs.
 
-## install
+No telemetry. No runtime network calls. Private paths and reasoning stay hidden by default.
+
+## Install
 
 ```bash
 npm install -g logsesh
 ```
 
-from source:
+From source:
 
 ```bash
 pnpm install
@@ -16,7 +18,9 @@ pnpm build
 pnpm dev list
 ```
 
-## usage
+Requires Node.js `>=22`.
+
+## Use
 
 ```bash
 logsesh list
@@ -25,48 +29,59 @@ logsesh stats --since 30d
 logsesh export --format markdown --out session.md --redact
 ```
 
-commands: `list`, `search`, `stats`, `export`, and `debug` (single-file diagnostic).
+## Commands
 
-shared flags: `--tool`, `--project`, `--since`, `--until`, `--query`, `--json`, `--roots`, `--estimate-cost`, `--max-file-bytes`, `--max-turn-chars`, `--max-tool-output-chars`.
+| command | purpose |
+| --- | --- |
+| `list` | show matching sessions |
+| `search` | find text across transcripts |
+| `stats` | summarize activity and token usage |
+| `export` | write JSON, JSONL, Markdown, or CSV |
+| `debug` | inspect one log file |
 
-`search`: `--search-reasoning`, `--include-tool-output`, `--redact-pattern`.
+Run `logsesh <command> --help` for full options.
 
-`export`: `--format` (json, jsonl, markdown, csv), `--granularity`, `--summary-only`, `--out`, `--force`, `--redact`, `--redact-pattern`, `--include-reasoning`, `--no-anonymize-paths`, `--unsafe-raw`.
+## Sources
 
-full flag reference: `logsesh <command> --help`.
+| tool | default location |
+| --- | --- |
+| Claude Code | `~/.claude/projects/*/*.jsonl` |
+| Codex | `~/.codex/sessions/**/rollout-*.jsonl` |
+| Gemini CLI | experimental |
 
-## library
+## Privacy Defaults
 
-`npm install @logsesh/core` for programmatic access. schemas under `@logsesh/core/schemas/*`, pricing under `@logsesh/core/pricing/*`.
+- Paths are anonymized in `list`, `search`, `stats`, and exports.
+- Search snippets are redacted by default.
+- Reasoning is excluded unless `--include-reasoning` is set.
+- Full exports warn unless `--redact` is set.
+- Logged `costUsd` is never overwritten; estimates are labeled.
 
-## logs
-
-| tool | path |
-|------|------|
-| claude code | `~/.claude/projects/*/*.jsonl` |
-| codex | `~/.codex/sessions/**/rollout-*.jsonl` |
-| gemini cli | experimental |
-
-## privacy
-
-- no network calls at runtime
-- paths anonymized in list, search, stats, and exports by default
-- search snippets redacted by default; use `--redact` on exports
-- reasoning excluded unless `--include-reasoning`
-- `costUsd` comes from logs only; use `--estimate-cost` for labeled estimates
-
-## requirements
-
-node `>=22`
-
-## development
+## Library
 
 ```bash
-pnpm test
+npm install @logsesh/core
+```
+
+```ts
+import { runPipeline, sanitizeForExport } from "@logsesh/core";
+
+for await (const { session } of runPipeline({ toolFilter: ["codex"] })) {
+  if (!session) continue;
+  console.log(sanitizeForExport(session));
+}
+```
+
+Schemas are published under `@logsesh/core/schemas/*`.
+Pricing data is published under `@logsesh/core/pricing/*`.
+
+## Develop
+
+```bash
 pnpm verify
 pnpm publish -r --dry-run --no-git-checks
 ```
 
-## license
+## License
 
 MIT

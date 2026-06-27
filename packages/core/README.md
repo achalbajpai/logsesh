@@ -1,31 +1,51 @@
 # @logsesh/core
 
-parse and normalize ai coding agent session logs.
+Parser and normalization library behind `logsesh`.
 
-## install
+Use it to discover local agent logs, normalize sessions, sanitize exports, validate schemas, and estimate costs.
+
+## Install
 
 ```bash
 npm install @logsesh/core
 ```
 
-## usage
+Requires Node.js `>=22`.
+
+## Use
 
 ```ts
 import { runPipeline, sanitizeForExport } from "@logsesh/core";
 
-for await (const { session } of runPipeline({ toolFilter: ["claude-code"] })) {
+for await (const { session, warnings } of runPipeline({ toolFilter: ["codex"] })) {
+  for (const warning of warnings) console.warn(warning.message);
   if (!session) continue;
-  const exported = sanitizeForExport(session);
+
+  const safeSession = sanitizeForExport(session);
+  console.log(safeSession);
 }
 ```
+
+## Modules
+
+| export | purpose |
+| --- | --- |
+| `runPipeline` | discover and parse sessions |
+| `sanitizeForExport` | remove raw paths and reasoning by default |
+| `searchSession` | search a normalized session |
+| `StatsAggregator` | aggregate session stats |
+| `estimateSessionCost` | add labeled pricing estimates |
+
+## Published Data
 
 ```ts
 import sessionSchema from "@logsesh/core/schemas/session.json" with { type: "json" };
 import models from "@logsesh/core/pricing/models.json" with { type: "json" };
 ```
 
-requires node `>=22`.
+Schemas are available under `@logsesh/core/schemas/*`.
+Pricing data is available under `@logsesh/core/pricing/*`.
 
-## license
+## License
 
 MIT
