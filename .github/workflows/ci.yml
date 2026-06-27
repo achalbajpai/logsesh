@@ -23,11 +23,24 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck
-        run: pnpm typecheck
+      - name: Build
+        run: pnpm build
 
       - name: Test
         run: pnpm test
+
+      - name: Test coverage
+        run: pnpm test:coverage
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          if-no-files-found: error
+
+      - name: Typecheck
+        run: pnpm typecheck
 
       - name: Lint
         run: pnpm lint
@@ -35,8 +48,13 @@ jobs:
       - name: Format check
         run: pnpm fmt:check
 
-      - name: Build
-        run: pnpm build
-
       - name: Schema drift check
         run: pnpm gen:schema:check
+
+      - name: Pricing integrity check
+        run: pnpm check:pricing
+
+      - name: Package dry-run
+        run: |
+          pnpm --filter @logsesh/core pack --dry-run
+          pnpm --filter logsesh pack --dry-run

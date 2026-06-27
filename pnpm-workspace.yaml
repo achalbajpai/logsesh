@@ -15,6 +15,7 @@ catalog:
   typescript: 7.0.1-rc
   typescript-emit: npm:typescript@5.7.3
   vitest: ^4.1.9
+  "@vitest/coverage-v8": ^4.1.9
   zod: ^4.4.3
 
 allowBuilds:

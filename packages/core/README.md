@@ -6,8 +6,11 @@ Use it to discover local agent logs, normalize sessions, sanitize exports, valid
 
 ## Install
 
+Workspace only for now (not on npm yet). From the monorepo root:
+
 ```bash
-npm install @logsesh/core
+pnpm install
+pnpm build
 ```
 
 Requires Node.js `>=22`.
