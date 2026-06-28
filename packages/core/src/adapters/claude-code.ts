@@ -15,7 +15,7 @@ import {
   readJsonlLines,
   sessionFileNameId,
 } from "../util.js";
-import { readdir, stat } from "node:fs/promises";
+import { lstat, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
@@ -123,13 +123,14 @@ export const claudeCodeAdapter: Adapter = {
       const projectDir = join(root, slug);
       let entryStat;
       try {
-        entryStat = await stat(projectDir);
+        entryStat = await lstat(projectDir);
       } catch {
         continue;
       }
+      if (entryStat.isSymbolicLink()) continue;
 
       if (!entryStat.isDirectory()) {
-        if (slug.endsWith(".jsonl")) {
+        if (entryStat.isFile() && slug.endsWith(".jsonl")) {
           yield { path: projectDir, tool: "claude-code" };
         }
         continue;
@@ -144,7 +145,14 @@ export const claudeCodeAdapter: Adapter = {
 
       for (const file of files) {
         if (!file.endsWith(".jsonl")) continue;
-        yield { path: join(projectDir, file), tool: "claude-code" };
+        const path = join(projectDir, file);
+        try {
+          const fileStat = await lstat(path);
+          if (fileStat.isSymbolicLink() || !fileStat.isFile()) continue;
+        } catch {
+          continue;
+        }
+        yield { path, tool: "claude-code" };
       }
     }
   },

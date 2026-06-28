@@ -1,4 +1,6 @@
 import { type WriteStream, createWriteStream } from "node:fs";
+import { lstat, realpath } from "node:fs/promises";
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { finished } from "node:stream/promises";
 import type { ExportSession, Session, Warning } from "@logsesh/core";
 import {
@@ -32,7 +34,7 @@ export interface ExportOptions {
   out?: string;
   force?: boolean;
   tool?: string;
-  project?: string;
+  project?: string | string[];
   since?: string;
   until?: string;
   query?: string;
@@ -48,6 +50,33 @@ export interface ExportOptions {
   maxTurnChars?: number;
   maxToolOutputChars?: number;
   roots?: string[];
+}
+
+function isWithinBase(base: string, candidate: string): boolean {
+  const rel = relative(base, candidate);
+  return rel === "" || (rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
+}
+
+async function resolveSafeOutputPath(outPath: string): Promise<string> {
+  const cwd = process.cwd();
+  const resolved = resolve(cwd, outPath);
+  const trustedBase = await realpath(cwd);
+  const realParent = await realpath(dirname(resolved));
+  if (!isWithinBase(trustedBase, realParent)) {
+    throw new Error(`Refusing to write outside the current directory with --out path: ${outPath}.`);
+  }
+
+  try {
+    const outputStat = await lstat(resolved);
+    if (outputStat.isSymbolicLink()) {
+      throw new Error(`Refusing to write to symlink output path: ${outPath}.`);
+    }
+  } catch (err) {
+    const code =
+      err instanceof Error && "code" in err && typeof err.code === "string" ? err.code : undefined;
+    if (code !== "ENOENT") throw err;
+  }
+  return resolved;
 }
 
 function pipelineOpts(opts: ExportOptions): PipelineOptions | null {
@@ -96,6 +125,21 @@ export async function runExport(opts: ExportOptions): Promise<number> {
   if (!opts.summaryOnly && !redact) {
     console.error("Warning: exporting full transcript with --allow-sensitive may contain secrets.");
   }
+  if (opts.unsafeRaw) {
+    console.error(
+      "Warning: --unsafe-raw disables Markdown injection protection; only use it for trusted output that will not be rendered as HTML.",
+    );
+  }
+
+  let outputPath: string | undefined;
+  if (opts.out) {
+    try {
+      outputPath = await resolveSafeOutputPath(opts.out);
+    } catch (err) {
+      console.error(err instanceof Error ? err.message : String(err));
+      return 2;
+    }
+  }
 
   const sanitizeOpts = sanitizeOptsFromExport(opts);
   const parsedPatterns = opts.redactPattern
@@ -129,13 +173,22 @@ export async function runExport(opts: ExportOptions): Promise<number> {
       summaries.push(sessionToSummary(session, sanitizeOpts));
     }
     const output = exportSummaryCsv(summaries);
-    if (opts.out) await writeExportFile(opts.out, output, { force: opts.force });
+    if (outputPath) await writeExportFile(outputPath, output, { force: opts.force });
     else process.stdout.write(output);
     return 0;
   }
 
-  if (opts.out) {
-    await exportToFile(format, opts, pipeline, sanitize, warnings, pubWarnings, granular, opts.out);
+  if (outputPath) {
+    await exportToFile(
+      format,
+      opts,
+      pipeline,
+      sanitize,
+      warnings,
+      pubWarnings,
+      granular,
+      outputPath,
+    );
     return 0;
   }
 

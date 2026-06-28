@@ -206,7 +206,7 @@ export interface ParseOptions {
 
 export interface DiscoverOptions {
   toolFilter?: ToolName[];
-  projectFilter?: string;
+  projectFilter?: string | string[];
   since?: Date;
   until?: Date;
   roots?: Partial<Record<ToolName, string>>;

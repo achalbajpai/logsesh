@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -60,6 +60,17 @@ describe("command handlers", () => {
     expect(logs.join("\n")).toContain("claude-code");
   });
 
+  it("runList treats multiple project filters as OR", async () => {
+    expect(
+      await runList({
+        ...claudeOpts,
+        project: ["claude", "zzzznotfound"],
+        json: true,
+      }),
+    ).toBe(0);
+    expect(JSON.parse(logs.join("\n")).sessions.length).toBeGreaterThan(0);
+  });
+
   it("runStats returns json envelope", async () => {
     expect(await runStats({ ...claudeOpts, json: true, estimateCost: true })).toBe(0);
     const body = JSON.parse(logs.join("\n"));
@@ -85,13 +96,23 @@ describe("command handlers", () => {
     const body = JSON.parse(logs.join("\n"));
     expect(body.format).toBe("logsesh.doctor.v1");
     expect(body.pricing.modelCount).toBeGreaterThan(0);
+    expect(body.pricing.sources.map((source: { url: string }) => source.url)).toEqual(
+      expect.arrayContaining([
+        "https://platform.openai.com/docs/pricing",
+        "https://docs.anthropic.com/en/docs/about-claude/pricing",
+        "https://platform.claude.com/docs/en/about-claude/model-deprecations",
+      ]),
+    );
   });
 
   it("runDoctorCommand prints human report", async () => {
     expect(await runDoctorCommand({ roots: claudeOpts.roots })).toBe(0);
     const out = logs.join("\n");
-    expect(out).toContain("logsesh doctor");
+    expect(out).toMatch(/^Pricing table/);
     expect(out).toContain("Pricing table");
+    expect(out).toContain("sources:");
+    expect(out).toContain("platform.openai.com/docs/pricing");
+    expect(out).toContain("docs.anthropic.com/en/docs/about-claude/pricing");
     expect(out).toContain("Adapters");
   });
 
@@ -164,11 +185,62 @@ describe("command handlers", () => {
   });
 
   it("runExport writes json to a file", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "logsesh-export-"));
+    const dir = join(process.cwd(), `.logsesh-export-${process.pid}`);
     const out = join(dir, "sessions.json");
     try {
+      mkdirSync(dir, { recursive: true });
       expect(await runExport({ ...claudeOpts, format: "json", out })).toBe(0);
       expect(readFileSync(out, "utf8")).toContain("logsesh.export.v1");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("runExport rejects relative output paths outside cwd", async () => {
+    expect(await runExport({ ...claudeOpts, format: "json", out: "../logsesh-escape.json" })).toBe(
+      2,
+    );
+    expect(errors.join("\n")).toContain("Refusing to write outside the current directory");
+  });
+
+  it("runExport rejects output paths whose real parent escapes cwd through a symlink", async () => {
+    const outside = mkdtempSync(join(tmpdir(), "logsesh-export-outside-"));
+    const link = join(process.cwd(), `.logsesh-export-link-${process.pid}`);
+    try {
+      symlinkSync(outside, link, "dir");
+      expect(
+        await runExport({ ...claudeOpts, format: "json", out: join(link, "sessions.json") }),
+      ).toBe(2);
+      expect(errors.join("\n")).toContain("Refusing to write outside the current directory");
+    } finally {
+      rmSync(link, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  it("runExport rejects final output paths that are symlinks", async () => {
+    const dir = join(process.cwd(), `.logsesh-export-symlink-${process.pid}`);
+    const target = join(dir, "target.json");
+    const out = join(dir, "sessions.json");
+    try {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(target, "existing");
+      symlinkSync(target, out);
+      expect(await runExport({ ...claudeOpts, format: "json", out, force: true })).toBe(2);
+      expect(errors.join("\n")).toContain("Refusing to write to symlink output path");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("runExport allows relative output paths inside cwd that start with dot-dot text", async () => {
+    const dirName = `..logsesh-export-safe-${process.pid}`;
+    const dir = join(process.cwd(), dirName);
+    const out = join(dirName, "sessions.json");
+    try {
+      mkdirSync(dir, { recursive: true });
+      expect(await runExport({ ...claudeOpts, format: "json", out })).toBe(0);
+      expect(readFileSync(join(process.cwd(), out), "utf8")).toContain("logsesh.export.v1");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -177,6 +249,11 @@ describe("command handlers", () => {
   it("runExport warns when allow-sensitive is set", async () => {
     expect(await runExport({ ...claudeOpts, format: "json", allowSensitive: true })).toBe(0);
     expect(errors.join("\n")).toContain("--allow-sensitive");
+  });
+
+  it("runExport warns when unsafe markdown output is requested", async () => {
+    expect(await runExport({ ...claudeOpts, format: "markdown", unsafeRaw: true })).toBe(0);
+    expect(errors.join("\n")).toContain("--unsafe-raw disables Markdown injection protection");
   });
 
   it("runExport rejects invalid redact patterns", async () => {

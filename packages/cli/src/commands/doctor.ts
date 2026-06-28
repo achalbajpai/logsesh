@@ -27,13 +27,14 @@ export async function runDoctorCommand(opts: DoctorOptions): Promise<number> {
 
   printWarningsToStderr(report.warnings ?? []);
 
-  console.log("logsesh doctor");
-  console.log("");
   console.log("Pricing table");
   console.log(`  version: ${report.pricing.version}`);
   console.log(`  as of:   ${report.pricing.asOf}`);
   console.log(`  models:  ${report.pricing.modelCount}`);
-  console.log(`  source:  ${report.pricing.sourceUrl}`);
+  console.log("  sources:");
+  for (const source of report.pricing.sources) {
+    console.log(`    ${source.provider}: ${source.url} (as of ${source.asOf})`);
+  }
   console.log("");
   console.log("Export defaults");
   console.log(

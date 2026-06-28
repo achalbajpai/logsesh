@@ -1,4 +1,4 @@
-import { readdir, realpath, stat } from "node:fs/promises";
+import { lstat, readdir, realpath } from "node:fs/promises";
 import { join } from "node:path";
 import type { ToolName, Warning } from "./types.js";
 
@@ -27,10 +27,11 @@ export async function* walkFiles(
     const full = join(realDir, entry);
     let s;
     try {
-      s = await stat(full);
+      s = await lstat(full);
     } catch {
       continue;
     }
+    if (s.isSymbolicLink()) continue;
     if (s.isDirectory()) {
       if (match(full, entry, true)) {
         yield* walkFiles(full, match, visited);

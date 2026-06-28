@@ -1,5 +1,6 @@
 const BUILTIN_PATTERNS: RegExp[] = [
-  /sk-[A-Za-z0-9]{20,}/g,
+  /sk-[A-Za-z0-9_-]{20,}/g,
+  /sk_(?:test|live)_[A-Za-z0-9]{20,}/g,
   /sk-proj-[A-Za-z0-9_-]{20,}/g,
   /sk-ant-[A-Za-z0-9\-_]{20,}/g,
   /ghp_[A-Za-z0-9]{20,}/g,

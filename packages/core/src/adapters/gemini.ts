@@ -9,7 +9,7 @@ import type {
 } from "../types.js";
 import { parseJsonLine, readJsonlLines, sessionFileNameId } from "../util.js";
 import { detectRootAccess } from "../fs-walk.js";
-import { readdir, stat } from "node:fs/promises";
+import { lstat, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
@@ -90,17 +90,37 @@ export const geminiAdapter: Adapter = {
     }
 
     for (const project of projects) {
-      const chatDir = join(root, project, "chats");
+      const projectDir = join(root, project);
       try {
-        const s = await stat(chatDir);
-        if (!s.isDirectory()) continue;
+        const projectStat = await lstat(projectDir);
+        if (projectStat.isSymbolicLink() || !projectStat.isDirectory()) continue;
       } catch {
         continue;
       }
-      const files = await readdir(chatDir);
+
+      const chatDir = join(projectDir, "chats");
+      try {
+        const s = await lstat(chatDir);
+        if (s.isSymbolicLink() || !s.isDirectory()) continue;
+      } catch {
+        continue;
+      }
+      let files: string[];
+      try {
+        files = await readdir(chatDir);
+      } catch {
+        continue;
+      }
       for (const file of files) {
         if (file.startsWith("session-") && file.endsWith(".jsonl")) {
-          yield { path: join(chatDir, file), tool: "gemini" };
+          const path = join(chatDir, file);
+          try {
+            const fileStat = await lstat(path);
+            if (fileStat.isSymbolicLink() || !fileStat.isFile()) continue;
+          } catch {
+            continue;
+          }
+          yield { path, tool: "gemini" };
         }
       }
     }

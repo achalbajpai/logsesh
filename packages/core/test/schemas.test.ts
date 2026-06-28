@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { listEnvelopeSchema, publicSessionSchema, sessionSchema } from "../src/schemas.js";
+import {
+  doctorEnvelopeSchema,
+  listEnvelopeSchema,
+  publicSessionSchema,
+  sessionSchema,
+} from "../src/schemas.js";
 import { sanitizeForExport } from "../src/sanitize.js";
 import type { Session } from "../src/types.js";
 
@@ -30,5 +35,34 @@ describe("schema validation", () => {
       warnings: [],
     };
     expect(listEnvelopeSchema.parse(envelope).format).toBe("logsesh.list.v1");
+  });
+
+  it("requires doctor pricing sources", () => {
+    const envelope = {
+      format: "logsesh.doctor.v1" as const,
+      generatedAt: new Date().toISOString(),
+      tools: [],
+      pricing: {
+        version: "2026-06-v6",
+        asOf: "2026-06-27",
+        sourceUrl: "https://platform.openai.com/docs/pricing",
+        sources: [
+          {
+            provider: "openai",
+            url: "https://platform.openai.com/docs/pricing",
+            asOf: "2026-06-27",
+          },
+        ],
+        modelCount: 33,
+      },
+      exportDefaults: {
+        transcriptRedactDefault: true,
+        summaryCsvRedactRequired: false,
+        anonymizePathsDefault: true,
+      },
+      warnings: [],
+    };
+    const parsed = doctorEnvelopeSchema.parse(envelope);
+    expect(parsed.pricing.sources).toHaveLength(1);
   });
 });
