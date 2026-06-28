@@ -46,6 +46,18 @@ export const PRICING_VERSION = DATA.version;
 export const PRICING_AS_OF = DATA.asOf;
 export const PRICING_SOURCE_URL = DATA.sourceUrl;
 export const PRICING_MODEL_COUNT = DATA.models.length;
+export const PRICING_SOURCES = [
+  ...new Map(
+    [
+      ...DATA.sources,
+      ...DATA.models.map((row) => ({
+        provider: row.provider,
+        url: row.sourceUrl,
+        asOf: row.verifiedAt,
+      })),
+    ].map((source) => [`${source.provider}:${source.url}`, source]),
+  ).values(),
+];
 
 function normalizeModel(model: string): string {
   return model.toLowerCase().replace(/[._]/g, "-");

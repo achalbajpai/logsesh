@@ -98,6 +98,13 @@ describe("runDoctor", () => {
     });
     expect(report.format).toBe("logsesh.doctor.v1");
     expect(report.pricing.modelCount).toBeGreaterThan(0);
+    expect(report.pricing.sources.map((source) => source.url)).toEqual(
+      expect.arrayContaining([
+        "https://platform.openai.com/docs/pricing",
+        "https://docs.anthropic.com/en/docs/about-claude/pricing",
+        "https://platform.claude.com/docs/en/about-claude/model-deprecations",
+      ]),
+    );
     expect(report.tools.find((t) => t.tool === "claude-code")?.candidateFiles).toBeGreaterThan(0);
     expect(report.tools.every((t) => t.capabilities.model)).toBeTruthy();
   });

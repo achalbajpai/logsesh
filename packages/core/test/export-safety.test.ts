@@ -30,6 +30,15 @@ describe("redact", () => {
     );
   });
 
+  it("redacts stripe-style secret keys with hyphenated prefixes", () => {
+    const stripeTestKey = ["sk", "test", "abc123fakekey456789012345678"].join("-");
+    const stripeLiveKey = ["sk", "live", "abc123fakekey456789012345678"].join("_");
+    const redacted = redactText(`stripe=${stripeTestKey} live=${stripeLiveKey}`);
+    expect(redacted).not.toContain("sk-test-");
+    expect(redacted).not.toContain("sk_live_");
+    expect(redacted).toContain("[REDACTED]");
+  });
+
   it("reports invalid custom patterns", () => {
     const { patterns, errors } = parseRedactPatterns(["(", "secret-[0-9]+"]);
     expect(errors).toHaveLength(1);

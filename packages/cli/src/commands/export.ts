@@ -1,4 +1,5 @@
 import { type WriteStream, createWriteStream } from "node:fs";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import { finished } from "node:stream/promises";
 import type { ExportSession, Session, Warning } from "@logsesh/core";
 import {
@@ -32,7 +33,7 @@ export interface ExportOptions {
   out?: string;
   force?: boolean;
   tool?: string;
-  project?: string;
+  project?: string | string[];
   since?: string;
   until?: string;
   query?: string;
@@ -48,6 +49,18 @@ export interface ExportOptions {
   maxTurnChars?: number;
   maxToolOutputChars?: number;
   roots?: string[];
+}
+
+function resolveSafeOutputPath(outPath: string): string {
+  if (isAbsolute(outPath)) return outPath;
+  const cwd = process.cwd();
+  const resolved = resolve(cwd, outPath);
+  const rel = relative(cwd, resolved);
+  const escapesCwd = rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel);
+  if (!escapesCwd) return resolved;
+  throw new Error(
+    `Refusing to write outside the current directory with relative --out path: ${outPath}. Use an absolute path if this is intentional.`,
+  );
 }
 
 function pipelineOpts(opts: ExportOptions): PipelineOptions | null {
@@ -96,6 +109,21 @@ export async function runExport(opts: ExportOptions): Promise<number> {
   if (!opts.summaryOnly && !redact) {
     console.error("Warning: exporting full transcript with --allow-sensitive may contain secrets.");
   }
+  if (opts.unsafeRaw) {
+    console.error(
+      "Warning: --unsafe-raw disables Markdown injection protection; only use it for trusted output that will not be rendered as HTML.",
+    );
+  }
+
+  let outputPath: string | undefined;
+  if (opts.out) {
+    try {
+      outputPath = resolveSafeOutputPath(opts.out);
+    } catch (err) {
+      console.error(err instanceof Error ? err.message : String(err));
+      return 2;
+    }
+  }
 
   const sanitizeOpts = sanitizeOptsFromExport(opts);
   const parsedPatterns = opts.redactPattern
@@ -129,13 +157,22 @@ export async function runExport(opts: ExportOptions): Promise<number> {
       summaries.push(sessionToSummary(session, sanitizeOpts));
     }
     const output = exportSummaryCsv(summaries);
-    if (opts.out) await writeExportFile(opts.out, output, { force: opts.force });
+    if (outputPath) await writeExportFile(outputPath, output, { force: opts.force });
     else process.stdout.write(output);
     return 0;
   }
 
-  if (opts.out) {
-    await exportToFile(format, opts, pipeline, sanitize, warnings, pubWarnings, granular, opts.out);
+  if (outputPath) {
+    await exportToFile(
+      format,
+      opts,
+      pipeline,
+      sanitize,
+      warnings,
+      pubWarnings,
+      granular,
+      outputPath,
+    );
     return 0;
   }
 

@@ -117,9 +117,16 @@ function sessionTranscriptHaystack(session: Session): string {
 export function matchesSessionFilters(
   session: Session,
   parsed: ParsedQuery,
-  projectFilter?: string,
+  projectFilter?: string | string[],
 ): boolean {
-  if (projectFilter && !matchesProject(session.projectPath, projectFilter)) return false;
+  const projectFilters =
+    typeof projectFilter === "string" ? [projectFilter] : (projectFilter ?? []);
+  if (
+    projectFilters.length > 0 &&
+    !projectFilters.some((filter) => matchesProject(session.projectPath, filter))
+  ) {
+    return false;
+  }
   if (parsed.fields.project?.length) {
     const matchesProjectField = parsed.fields.project.some((value) =>
       matchesProject(session.projectPath, value),
@@ -137,7 +144,7 @@ export function matchesSessionTextQuery(session: Session, parsed: ParsedQuery): 
 export function matchesSessionQuery(
   session: Session,
   query?: string,
-  projectFilter?: string,
+  projectFilter?: string | string[],
 ): boolean {
   const parsed = parseQuery(query ?? "");
   if (!matchesSessionFilters(session, parsed, projectFilter)) return false;

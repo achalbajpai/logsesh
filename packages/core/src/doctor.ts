@@ -3,6 +3,7 @@ import { detectRootAccess } from "./fs-walk.js";
 import {
   PRICING_AS_OF,
   PRICING_MODEL_COUNT,
+  PRICING_SOURCES,
   PRICING_SOURCE_URL,
   PRICING_VERSION,
 } from "./pricing.js";
@@ -32,6 +33,11 @@ export interface DoctorReport {
     version: string;
     asOf: string;
     sourceUrl: string;
+    sources: Array<{
+      provider: string;
+      url: string;
+      asOf: string;
+    }>;
     modelCount: number;
   };
   exportDefaults: {
@@ -95,6 +101,7 @@ export async function runDoctor(opts: DiscoverOptions = {}): Promise<DoctorRepor
       version: PRICING_VERSION,
       asOf: PRICING_AS_OF,
       sourceUrl: PRICING_SOURCE_URL,
+      sources: PRICING_SOURCES,
       modelCount: PRICING_MODEL_COUNT,
     },
     exportDefaults: {

@@ -6,6 +6,8 @@ export function sharedOptions(cmd: Command): Command {
     .option(
       "--project <name>",
       "Filter by project path or directory name (same as project:name in --query)",
+      collect,
+      [],
     )
     .option("--since <date>", "Filter sessions since (ISO date or e.g. 7d)")
     .option("--until <date>", "Filter sessions until")

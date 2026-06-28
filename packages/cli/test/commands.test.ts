@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -60,6 +60,17 @@ describe("command handlers", () => {
     expect(logs.join("\n")).toContain("claude-code");
   });
 
+  it("runList treats multiple project filters as OR", async () => {
+    expect(
+      await runList({
+        ...claudeOpts,
+        project: ["claude", "zzzznotfound"],
+        json: true,
+      }),
+    ).toBe(0);
+    expect(JSON.parse(logs.join("\n")).sessions.length).toBeGreaterThan(0);
+  });
+
   it("runStats returns json envelope", async () => {
     expect(await runStats({ ...claudeOpts, json: true, estimateCost: true })).toBe(0);
     const body = JSON.parse(logs.join("\n"));
@@ -85,13 +96,23 @@ describe("command handlers", () => {
     const body = JSON.parse(logs.join("\n"));
     expect(body.format).toBe("logsesh.doctor.v1");
     expect(body.pricing.modelCount).toBeGreaterThan(0);
+    expect(body.pricing.sources.map((source: { url: string }) => source.url)).toEqual(
+      expect.arrayContaining([
+        "https://platform.openai.com/docs/pricing",
+        "https://docs.anthropic.com/en/docs/about-claude/pricing",
+        "https://platform.claude.com/docs/en/about-claude/model-deprecations",
+      ]),
+    );
   });
 
   it("runDoctorCommand prints human report", async () => {
     expect(await runDoctorCommand({ roots: claudeOpts.roots })).toBe(0);
     const out = logs.join("\n");
-    expect(out).toContain("logsesh doctor");
+    expect(out).toMatch(/^Pricing table/);
     expect(out).toContain("Pricing table");
+    expect(out).toContain("sources:");
+    expect(out).toContain("platform.openai.com/docs/pricing");
+    expect(out).toContain("docs.anthropic.com/en/docs/about-claude/pricing");
     expect(out).toContain("Adapters");
   });
 
@@ -174,9 +195,34 @@ describe("command handlers", () => {
     }
   });
 
+  it("runExport rejects relative output paths outside cwd", async () => {
+    expect(await runExport({ ...claudeOpts, format: "json", out: "../logsesh-escape.json" })).toBe(
+      2,
+    );
+    expect(errors.join("\n")).toContain("Refusing to write outside the current directory");
+  });
+
+  it("runExport allows relative output paths inside cwd that start with dot-dot text", async () => {
+    const dirName = `..logsesh-export-safe-${process.pid}`;
+    const dir = join(process.cwd(), dirName);
+    const out = join(dirName, "sessions.json");
+    try {
+      mkdirSync(dir, { recursive: true });
+      expect(await runExport({ ...claudeOpts, format: "json", out })).toBe(0);
+      expect(readFileSync(join(process.cwd(), out), "utf8")).toContain("logsesh.export.v1");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("runExport warns when allow-sensitive is set", async () => {
     expect(await runExport({ ...claudeOpts, format: "json", allowSensitive: true })).toBe(0);
     expect(errors.join("\n")).toContain("--allow-sensitive");
+  });
+
+  it("runExport warns when unsafe markdown output is requested", async () => {
+    expect(await runExport({ ...claudeOpts, format: "markdown", unsafeRaw: true })).toBe(0);
+    expect(errors.join("\n")).toContain("--unsafe-raw disables Markdown injection protection");
   });
 
   it("runExport rejects invalid redact patterns", async () => {

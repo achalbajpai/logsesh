@@ -286,6 +286,15 @@ export const doctorEnvelopeSchema = z.object({
     version: z.string(),
     asOf: z.string(),
     sourceUrl: z.string(),
+    sources: z
+      .array(
+        z.object({
+          provider: z.string(),
+          url: z.string(),
+          asOf: z.string(),
+        }),
+      )
+      .optional(),
     modelCount: z.number(),
   }),
   exportDefaults: z.object({

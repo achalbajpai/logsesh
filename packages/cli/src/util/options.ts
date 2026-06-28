@@ -1,6 +1,6 @@
 export interface SharedCommandOptions {
   tool?: string;
-  project?: string;
+  project?: string | string[];
   since?: string;
   until?: string;
   query?: string;

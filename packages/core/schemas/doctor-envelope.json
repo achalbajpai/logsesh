@@ -142,6 +142,29 @@
         "sourceUrl": {
           "type": "string"
         },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "provider": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              },
+              "asOf": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "provider",
+              "url",
+              "asOf"
+            ],
+            "additionalProperties": false
+          }
+        },
         "modelCount": {
           "type": "number"
         }

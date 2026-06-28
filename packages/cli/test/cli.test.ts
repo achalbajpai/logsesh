@@ -153,6 +153,7 @@ describe("CLI", () => {
     const body = JSON.parse(res.stdout);
     expect(body.format).toBe("logsesh.doctor.v1");
     expect(body.pricing.modelCount).toBeGreaterThan(0);
+    expect(body.pricing.sources.length).toBeGreaterThan(1);
     expect(body.tools.some((t: { tool: string }) => t.tool === "claude-code")).toBe(true);
   });
 
@@ -214,6 +215,21 @@ describe("CLI", () => {
     expect(body.stats.sessionCount).toBe(0);
   });
 
+  it("repeated --project filters are ORed", () => {
+    const res = run([
+      "list",
+      "--json",
+      "--project",
+      "claude",
+      "--project",
+      "zzzznotfound",
+      ...claudeRoots(),
+    ]);
+    expect(res.status).toBe(0);
+    const body = JSON.parse(res.stdout);
+    expect(body.sessions.length).toBeGreaterThan(0);
+  });
+
   it("export --format markdown writes session markdown", () => {
     const res = run(["export", "--format", "markdown", ...claudeRoots()]);
     expect(res.status).toBe(0);
@@ -239,5 +255,18 @@ describe("CLI", () => {
     expect(second.stderr).toContain("Refusing to overwrite");
     run(["export", "--format", "json", "--out", out, "--force", ...claudeRoots()]);
     unlinkSync(out);
+  });
+
+  it("export --out rejects relative path escapes", () => {
+    const res = run([
+      "export",
+      "--format",
+      "json",
+      "--out",
+      "../logsesh-escape.json",
+      ...claudeRoots(),
+    ]);
+    expect(res.status).toBe(2);
+    expect(res.stderr).toContain("Refusing to write outside the current directory");
   });
 });
