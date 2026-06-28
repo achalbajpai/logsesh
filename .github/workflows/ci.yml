@@ -5,6 +5,10 @@ on:
     branches: [main, master]
   pull_request:
 
+env:
+  PNPM_CONFIG_MINIMUM_RELEASE_AGE: 60
+  PNPM_CONFIG_MINIMUM_RELEASE_AGE_EXCLUDE: "@logsesh/core,logsesh"
+
 jobs:
   verify:
     runs-on: ubuntu-latest
