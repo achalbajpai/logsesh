@@ -1,6 +1,6 @@
 {
   "name": "logsesh",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Local-first CLI for AI coding agent session logs",
   "type": "module",
   "license": "MIT",
@@ -47,10 +47,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@logsesh/core": "workspace:*",
-    "commander": "catalog:",
-    "picocolors": "catalog:",
-    "zod": "catalog:"
+    "@logsesh/core": "workspace:^",
+    "commander": "^14.0.0",
+    "picocolors": "^1.1.1",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "catalog:",

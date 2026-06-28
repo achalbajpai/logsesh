@@ -12,18 +12,12 @@ catalogs:
     '@vitest/coverage-v8':
       specifier: ^4.1.9
       version: 4.1.9
-    commander:
-      specifier: ^14.0.0
-      version: 14.0.3
     oxfmt:
       specifier: ^0.16.0
       version: 0.16.0
     oxlint:
       specifier: ^1.16.0
       version: 1.71.0
-    picocolors:
-      specifier: ^1.1.1
-      version: 1.1.1
     tsdown:
       specifier: ^0.22.3
       version: 0.22.3
@@ -78,16 +72,16 @@ importers:
   packages/cli:
     dependencies:
       '@logsesh/core':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../core
       commander:
-        specifier: 'catalog:'
+        specifier: ^14.0.0
         version: 14.0.3
       picocolors:
-        specifier: 'catalog:'
+        specifier: ^1.1.1
         version: 1.1.1
       zod:
-        specifier: 'catalog:'
+        specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
       '@types/node':
@@ -109,7 +103,7 @@ importers:
   packages/core:
     dependencies:
       zod:
-        specifier: 'catalog:'
+        specifier: ^4.4.3
         version: 4.4.3
     devDependencies:
       '@types/node':
