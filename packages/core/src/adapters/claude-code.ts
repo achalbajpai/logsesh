@@ -130,7 +130,7 @@ export const claudeCodeAdapter: Adapter = {
       if (entryStat.isSymbolicLink()) continue;
 
       if (!entryStat.isDirectory()) {
-        if (slug.endsWith(".jsonl")) {
+        if (entryStat.isFile() && slug.endsWith(".jsonl")) {
           yield { path: projectDir, tool: "claude-code" };
         }
         continue;

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -185,9 +185,10 @@ describe("command handlers", () => {
   });
 
   it("runExport writes json to a file", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "logsesh-export-"));
+    const dir = join(process.cwd(), `.logsesh-export-${process.pid}`);
     const out = join(dir, "sessions.json");
     try {
+      mkdirSync(dir, { recursive: true });
       expect(await runExport({ ...claudeOpts, format: "json", out })).toBe(0);
       expect(readFileSync(out, "utf8")).toContain("logsesh.export.v1");
     } finally {
@@ -200,6 +201,36 @@ describe("command handlers", () => {
       2,
     );
     expect(errors.join("\n")).toContain("Refusing to write outside the current directory");
+  });
+
+  it("runExport rejects output paths whose real parent escapes cwd through a symlink", async () => {
+    const outside = mkdtempSync(join(tmpdir(), "logsesh-export-outside-"));
+    const link = join(process.cwd(), `.logsesh-export-link-${process.pid}`);
+    try {
+      symlinkSync(outside, link, "dir");
+      expect(
+        await runExport({ ...claudeOpts, format: "json", out: join(link, "sessions.json") }),
+      ).toBe(2);
+      expect(errors.join("\n")).toContain("Refusing to write outside the current directory");
+    } finally {
+      rmSync(link, { recursive: true, force: true });
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  it("runExport rejects final output paths that are symlinks", async () => {
+    const dir = join(process.cwd(), `.logsesh-export-symlink-${process.pid}`);
+    const target = join(dir, "target.json");
+    const out = join(dir, "sessions.json");
+    try {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(target, "existing");
+      symlinkSync(target, out);
+      expect(await runExport({ ...claudeOpts, format: "json", out, force: true })).toBe(2);
+      expect(errors.join("\n")).toContain("Refusing to write to symlink output path");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("runExport allows relative output paths inside cwd that start with dot-dot text", async () => {

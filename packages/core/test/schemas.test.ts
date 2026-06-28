@@ -37,7 +37,7 @@ describe("schema validation", () => {
     expect(listEnvelopeSchema.parse(envelope).format).toBe("logsesh.list.v1");
   });
 
-  it("accepts doctor v1 envelopes without pricing sources", () => {
+  it("requires doctor pricing sources", () => {
     const envelope = {
       format: "logsesh.doctor.v1" as const,
       generatedAt: new Date().toISOString(),
@@ -46,6 +46,13 @@ describe("schema validation", () => {
         version: "2026-06-v6",
         asOf: "2026-06-27",
         sourceUrl: "https://platform.openai.com/docs/pricing",
+        sources: [
+          {
+            provider: "openai",
+            url: "https://platform.openai.com/docs/pricing",
+            asOf: "2026-06-27",
+          },
+        ],
         modelCount: 33,
       },
       exportDefaults: {
@@ -55,6 +62,7 @@ describe("schema validation", () => {
       },
       warnings: [],
     };
-    expect(doctorEnvelopeSchema.parse(envelope).format).toBe("logsesh.doctor.v1");
+    const parsed = doctorEnvelopeSchema.parse(envelope);
+    expect(parsed.pricing.sources).toHaveLength(1);
   });
 });

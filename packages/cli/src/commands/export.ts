@@ -1,5 +1,6 @@
 import { type WriteStream, createWriteStream } from "node:fs";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { lstat, realpath } from "node:fs/promises";
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { finished } from "node:stream/promises";
 import type { ExportSession, Session, Warning } from "@logsesh/core";
 import {
@@ -51,16 +52,31 @@ export interface ExportOptions {
   roots?: string[];
 }
 
-function resolveSafeOutputPath(outPath: string): string {
-  if (isAbsolute(outPath)) return outPath;
+function isWithinBase(base: string, candidate: string): boolean {
+  const rel = relative(base, candidate);
+  return rel === "" || (rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
+}
+
+async function resolveSafeOutputPath(outPath: string): Promise<string> {
   const cwd = process.cwd();
   const resolved = resolve(cwd, outPath);
-  const rel = relative(cwd, resolved);
-  const escapesCwd = rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel);
-  if (!escapesCwd) return resolved;
-  throw new Error(
-    `Refusing to write outside the current directory with relative --out path: ${outPath}. Use an absolute path if this is intentional.`,
-  );
+  const trustedBase = await realpath(cwd);
+  const realParent = await realpath(dirname(resolved));
+  if (!isWithinBase(trustedBase, realParent)) {
+    throw new Error(`Refusing to write outside the current directory with --out path: ${outPath}.`);
+  }
+
+  try {
+    const outputStat = await lstat(resolved);
+    if (outputStat.isSymbolicLink()) {
+      throw new Error(`Refusing to write to symlink output path: ${outPath}.`);
+    }
+  } catch (err) {
+    const code =
+      err instanceof Error && "code" in err && typeof err.code === "string" ? err.code : undefined;
+    if (code !== "ENOENT") throw err;
+  }
+  return resolved;
 }
 
 function pipelineOpts(opts: ExportOptions): PipelineOptions | null {
@@ -118,7 +134,7 @@ export async function runExport(opts: ExportOptions): Promise<number> {
   let outputPath: string | undefined;
   if (opts.out) {
     try {
-      outputPath = resolveSafeOutputPath(opts.out);
+      outputPath = await resolveSafeOutputPath(opts.out);
     } catch (err) {
       console.error(err instanceof Error ? err.message : String(err));
       return 2;

@@ -105,7 +105,12 @@ export const geminiAdapter: Adapter = {
       } catch {
         continue;
       }
-      const files = await readdir(chatDir);
+      let files: string[];
+      try {
+        files = await readdir(chatDir);
+      } catch {
+        continue;
+      }
       for (const file of files) {
         if (file.startsWith("session-") && file.endsWith(".jsonl")) {
           const path = join(chatDir, file);

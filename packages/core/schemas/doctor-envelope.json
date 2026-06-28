@@ -173,6 +173,7 @@
         "version",
         "asOf",
         "sourceUrl",
+        "sources",
         "modelCount"
       ],
       "additionalProperties": false
