@@ -18,6 +18,13 @@ For library usage:
 ```bash
 npm install @logsesh/core
 ```
+<img width="1095" height="843" alt="Screenshot 2026-06-29 at 2 51 31 AM" src="https://github.com/user-attachments/assets/e002baa9-ba08-4136-9d82-beac5d2f0584" />
+
+| System Health & Pricing                                                                                                                                        | Session Usage Overview                                                                                                                                        |
+| --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| <img width="962" alt="Screenshot 2026-06-29 at 2 55 17 AM" src="https://github.com/user-attachments/assets/a4813d8e-4dbc-4780-beb5-e9362723d424" /> | <img width="1319" alt="Screenshot 2026-06-29 at 2 55 30 AM" src="https://github.com/user-attachments/assets/4504af7f-9b9b-4817-b315-accf7156c01f" /> |
+
+Note: The data shown in these screenshots is mock data for demonstration purposes.
 
 ## Quick Start
 
