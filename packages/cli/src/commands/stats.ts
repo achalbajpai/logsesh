@@ -8,16 +8,21 @@ import {
   statsEnvelopeSchema,
   toPublicWarnings,
 } from "@logsesh/core";
-import {
-  formatEstimatedCost,
-  formatLoggedCost,
-  formatUnpricedTokens,
-  printWarningsToStderr,
-} from "../util/format.js";
+import { printWarningsToStderr } from "../util/format.js";
 import type { SharedCommandOptions } from "../util/options.js";
 import { resolvePipelineOptions } from "../util/pipeline-options.js";
+import { buildStatsFilters, renderStats } from "../ui/stats.js";
+import { resolveRenderMode, validateRenderOptions } from "../ui/mode.js";
 
 export async function runStats(opts: SharedCommandOptions): Promise<number> {
+  if (!opts.json) {
+    const renderError = validateRenderOptions(opts);
+    if (renderError) {
+      console.error(renderError);
+      return 2;
+    }
+  }
+
   const resolved = resolvePipelineOptions(opts);
   if (!resolved.ok) {
     console.error(resolved.error);
@@ -49,16 +54,12 @@ export async function runStats(opts: SharedCommandOptions): Promise<number> {
     console.log(JSON.stringify(envelope, null, 2));
   } else {
     printWarningsToStderr(warnings);
-    console.log(`Sessions: ${stats.sessionCount}`);
-    console.log(`Turns: ${stats.turnCount}`);
-    console.log(`Tokens: ${stats.totalTokens}`);
-    console.log(`Logged cost: ${formatLoggedCost(stats)}`);
-    console.log(`Estimated cost: ${formatEstimatedCost(stats, !!opts.estimateCost)}`);
-    if (stats.unpricedSessionCount > 0) {
-      console.log(`Unpriced sessions: ${stats.unpricedSessionCount}`);
-      const unpricedTokens = formatUnpricedTokens(stats);
-      if (unpricedTokens) console.log(`Unpriced tokens: ${unpricedTokens}`);
-    }
+    const renderMode = resolveRenderMode(opts);
+    const lines = renderStats(stats, renderMode, {
+      filters: buildStatsFilters(opts),
+      usedEstimates: !!opts.estimateCost,
+    });
+    for (const line of lines) console.log(line);
   }
 
   if (opts.json && stats.sessionCount === 0) return 1;

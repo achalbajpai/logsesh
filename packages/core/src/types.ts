@@ -150,6 +150,29 @@ export interface SearchMatch {
   totalHits: number;
 }
 
+export interface DailyBurnEntry {
+  date: string;
+  sessions: number;
+  turns: number;
+  tokens: number;
+}
+
+export interface TokenBreakdown {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  reasoning: number;
+  observed: {
+    input: boolean;
+    output: boolean;
+    cacheRead: boolean;
+    cacheWrite: boolean;
+    reasoning: boolean;
+  };
+  observedSessionCount: number;
+}
+
 export interface StatsReport {
   sessionCount: number;
   turnCount: number;
@@ -163,6 +186,8 @@ export interface StatsReport {
   byTool: Record<string, { sessions: number; turns: number; tokens: number }>;
   byProject: Record<string, { sessions: number; turns: number; tokens: number }>;
   mostActiveDays: Array<{ date: string; sessions: number; turns: number }>;
+  dailyBurn: DailyBurnEntry[];
+  tokenBreakdown: TokenBreakdown;
 }
 
 export interface ListEnvelope {

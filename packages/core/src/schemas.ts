@@ -206,6 +206,22 @@ export const searchEnvelopeSchema = z.object({
   warnings: z.array(publicWarningSchema).optional(),
 });
 
+const tokenBreakdownSchema = z.object({
+  input: z.number(),
+  output: z.number(),
+  cacheRead: z.number(),
+  cacheWrite: z.number(),
+  reasoning: z.number(),
+  observed: z.object({
+    input: z.boolean(),
+    output: z.boolean(),
+    cacheRead: z.boolean(),
+    cacheWrite: z.boolean(),
+    reasoning: z.boolean(),
+  }),
+  observedSessionCount: z.number(),
+});
+
 const statsReportSchema = z.object({
   sessionCount: z.number(),
   turnCount: z.number(),
@@ -225,6 +241,10 @@ const statsReportSchema = z.object({
     z.object({ sessions: z.number(), turns: z.number(), tokens: z.number() }),
   ),
   mostActiveDays: z.array(z.object({ date: z.string(), sessions: z.number(), turns: z.number() })),
+  dailyBurn: z.array(
+    z.object({ date: z.string(), sessions: z.number(), turns: z.number(), tokens: z.number() }),
+  ),
+  tokenBreakdown: tokenBreakdownSchema,
 });
 
 export const statsEnvelopeSchema = z.object({

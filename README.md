@@ -18,6 +18,13 @@ For library usage:
 ```bash
 npm install @logsesh/core
 ```
+<img width="1095" height="843" alt="Screenshot 2026-06-29 at 2 51 31 AM" src="https://github.com/user-attachments/assets/e002baa9-ba08-4136-9d82-beac5d2f0584" />
+
+| System Health & Pricing                                                                                                                                        | Session Usage Overview                                                                                                                                        |
+| --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| <img width="962" alt="Screenshot 2026-06-29 at 2 55 17 AM" src="https://github.com/user-attachments/assets/a4813d8e-4dbc-4780-beb5-e9362723d424" /> | <img width="1319" alt="Screenshot 2026-06-29 at 2 55 30 AM" src="https://github.com/user-attachments/assets/4504af7f-9b9b-4817-b315-accf7156c01f" /> |
+
+Note: The data shown in these screenshots is mock data for demonstration purposes.
 
 ## Quick Start
 
@@ -30,6 +37,41 @@ logsesh export --format markdown --since 30d --out sessions.md
 
 `doctor` is the best first command on a new machine. It checks log discovery, adapter health, export defaults, and bundled pricing data.
 
+## Output Modes
+
+Human-facing commands (`list`, `stats`, `search`, `doctor`) support three output modes:
+
+| mode | trigger | output |
+| --- | --- | --- |
+| **rich** (default) | stdout is a TTY | width-aware tables and charts, Unicode bars, optional ANSI color |
+| **plain** | `--plain`, `LOGSESH_PLAIN=1`, or piped stdout | stable ASCII text — no charts, no ANSI |
+| **JSON** | `--json` | stable envelopes (`logsesh.list.v1`, etc.) |
+
+`export` and hidden `debug` are not affected by render flags. `--plain`, `--color`, and `--no-color` are accepted but ignored under `--json`.
+
+Compare `stats` across modes:
+
+```bash
+logsesh stats --since 7d                   # rich dashboard (TTY)
+logsesh stats --since 7d --plain           # flat summary lines
+logsesh stats --since 7d --json            # StatsEnvelope JSON
+logsesh stats --since 7d | cat             # plain when piped
+```
+
+Color and Unicode are independent in rich mode:
+
+| flag / env | effect |
+| --- | --- |
+| `--color` | force ANSI color |
+| `--no-color` | disable ANSI color |
+| `NO_COLOR` | disable ANSI color (Unicode charts remain) |
+| `FORCE_COLOR` | force ANSI color when rich mode is active |
+| `LOGSESH_PLAIN=1` | same as `--plain` |
+
+Passing both `--color` and `--no-color` is a usage error (exit `2`). `FORCE_COLOR` does not override plain mode on a pipe.
+
+**Scripts:** parse `--json` or use `--plain` for stable output. Do not parse rich dashboard text. See [CHANGELOG.md](./CHANGELOG.md) for the v0.2.0 migration note.
+
 ## Commands
 
 | command | purpose |
@@ -41,6 +83,8 @@ logsesh export --format markdown --since 30d --out sessions.md
 | `export` | write JSON, JSONL, Markdown, or CSV |
 
 Run `logsesh <command> --help` for all options.
+
+Human `list` and `stats` return exit `0` when no sessions match. Use `--json` when scripts need exit `1` on empty results (`search --json` always follows match count).
 
 ## Query Language
 

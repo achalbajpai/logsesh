@@ -4,6 +4,7 @@ import {
   listEnvelopeSchema,
   publicSessionSchema,
   sessionSchema,
+  statsEnvelopeSchema,
 } from "../src/schemas.js";
 import { sanitizeForExport } from "../src/sanitize.js";
 import type { Session } from "../src/types.js";
@@ -64,5 +65,46 @@ describe("schema validation", () => {
     };
     const parsed = doctorEnvelopeSchema.parse(envelope);
     expect(parsed.pricing.sources).toHaveLength(1);
+  });
+
+  it("requires current stats v1 additive fields", () => {
+    const envelope = {
+      format: "logsesh.stats.v1" as const,
+      generatedAt: new Date().toISOString(),
+      stats: {
+        sessionCount: 0,
+        turnCount: 0,
+        totalTokens: 0,
+        loggedCostUsd: null,
+        loggedSessionCount: 0,
+        estimatedCostUsd: null,
+        estimatedSessionCount: 0,
+        unpricedSessionCount: 0,
+        unpricedTokens: 0,
+        byTool: {},
+        byProject: {},
+        mostActiveDays: [],
+        dailyBurn: [],
+        tokenBreakdown: {
+          input: 0,
+          output: 0,
+          cacheRead: 0,
+          cacheWrite: 0,
+          reasoning: 0,
+          observed: {
+            input: false,
+            output: false,
+            cacheRead: false,
+            cacheWrite: false,
+            reasoning: false,
+          },
+          observedSessionCount: 0,
+        },
+      },
+      warnings: [],
+    };
+
+    const parsed = statsEnvelopeSchema.parse(envelope);
+    expect(parsed.stats.tokenBreakdown.observedSessionCount).toBe(0);
   });
 });

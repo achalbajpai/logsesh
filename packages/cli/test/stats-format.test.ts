@@ -2,6 +2,22 @@ import { describe, expect, it } from "vitest";
 import { formatEstimatedCost, formatLoggedCost, formatUnpricedTokens } from "../src/util/format.js";
 import type { StatsReport } from "@logsesh/core";
 
+const emptyTokenBreakdown: StatsReport["tokenBreakdown"] = {
+  input: 0,
+  output: 0,
+  cacheRead: 0,
+  cacheWrite: 0,
+  reasoning: 0,
+  observed: {
+    input: false,
+    output: false,
+    cacheRead: false,
+    cacheWrite: false,
+    reasoning: false,
+  },
+  observedSessionCount: 0,
+};
+
 const emptyStats: StatsReport = {
   sessionCount: 12,
   turnCount: 100,
@@ -15,6 +31,8 @@ const emptyStats: StatsReport = {
   byTool: {},
   byProject: {},
   mostActiveDays: [],
+  dailyBurn: [],
+  tokenBreakdown: emptyTokenBreakdown,
 };
 
 describe("stats cost formatting", () => {
@@ -48,6 +66,6 @@ describe("stats cost formatting", () => {
   });
 
   it("shows unpriced token share", () => {
-    expect(formatUnpricedTokens(emptyStats)).toBe("1.0M (100.0% of total)");
+    expect(formatUnpricedTokens(emptyStats)).toBe("1.00M (100.0% of total)");
   });
 });

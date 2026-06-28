@@ -8,9 +8,11 @@ import {
   searchSession,
   toPublicWarnings,
 } from "@logsesh/core";
-import { formatProject, printWarningsToStderr } from "../util/format.js";
+import { printWarningsToStderr } from "../util/format.js";
 import type { SharedCommandOptions } from "../util/options.js";
 import { resolvePipelineOptions } from "../util/pipeline-options.js";
+import { resolveRenderMode, validateRenderOptions } from "../ui/mode.js";
+import { renderSearchMatch, renderSearchSeparator } from "../ui/search.js";
 
 export interface SearchOptions extends SharedCommandOptions {
   searchQuery: string;
@@ -20,6 +22,14 @@ export interface SearchOptions extends SharedCommandOptions {
 }
 
 export async function runSearch(opts: SearchOptions): Promise<number> {
+  if (!opts.json) {
+    const renderError = validateRenderOptions(opts);
+    if (renderError) {
+      console.error(renderError);
+      return 2;
+    }
+  }
+
   const resolved = resolvePipelineOptions({
     ...opts,
     query: opts.searchQuery,
@@ -63,13 +73,19 @@ export async function runSearch(opts: SearchOptions): Promise<number> {
     console.log(JSON.stringify(envelope, null, 2));
   } else {
     printWarningsToStderr(warnings);
-    for (const m of matches) {
-      console.log(
-        `${m.tool}  ${formatProject(m.projectPath, 28)}  ${m.timestamp ?? "-"}  ${m.sessionId}`,
-      );
-      for (const s of m.snippets) console.log(`  ${s}`);
-      if (m.totalHits > m.snippets.length) {
-        console.error(`  (+${m.totalHits - m.snippets.length} more hits)`);
+    const renderMode = resolveRenderMode(opts);
+    for (let index = 0; index < matches.length; index++) {
+      const match = matches[index]!;
+      for (const line of renderSearchMatch(match, opts.searchQuery, renderMode)) {
+        console.log(line);
+      }
+      if (match.totalHits > match.snippets.length) {
+        console.error(`  (+${match.totalHits - match.snippets.length} more hits)`);
+      }
+      if (index < matches.length - 1) {
+        const separator = renderSearchSeparator(renderMode);
+        if (separator) console.log(separator);
+        else console.log("");
       }
     }
   }

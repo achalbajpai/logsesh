@@ -127,6 +127,94 @@
             ],
             "additionalProperties": false
           }
+        },
+        "dailyBurn": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "date": {
+                "type": "string"
+              },
+              "sessions": {
+                "type": "number"
+              },
+              "turns": {
+                "type": "number"
+              },
+              "tokens": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "date",
+              "sessions",
+              "turns",
+              "tokens"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "tokenBreakdown": {
+          "type": "object",
+          "properties": {
+            "input": {
+              "type": "number"
+            },
+            "output": {
+              "type": "number"
+            },
+            "cacheRead": {
+              "type": "number"
+            },
+            "cacheWrite": {
+              "type": "number"
+            },
+            "reasoning": {
+              "type": "number"
+            },
+            "observed": {
+              "type": "object",
+              "properties": {
+                "input": {
+                  "type": "boolean"
+                },
+                "output": {
+                  "type": "boolean"
+                },
+                "cacheRead": {
+                  "type": "boolean"
+                },
+                "cacheWrite": {
+                  "type": "boolean"
+                },
+                "reasoning": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "input",
+                "output",
+                "cacheRead",
+                "cacheWrite",
+                "reasoning"
+              ],
+              "additionalProperties": false
+            },
+            "observedSessionCount": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "input",
+            "output",
+            "cacheRead",
+            "cacheWrite",
+            "reasoning",
+            "observed",
+            "observedSessionCount"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -141,7 +229,9 @@
         "unpricedTokens",
         "byTool",
         "byProject",
-        "mostActiveDays"
+        "mostActiveDays",
+        "dailyBurn",
+        "tokenBreakdown"
       ],
       "additionalProperties": false
     },

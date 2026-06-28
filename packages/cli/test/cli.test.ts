@@ -132,6 +132,12 @@ describe("CLI", () => {
     expect(res.stderr).toContain("Invalid since date");
   });
 
+  it("rejects --color and --no-color together with exit 2", () => {
+    const res = run(["stats", "--color", "--no-color", ...claudeRoots()]);
+    expect(res.status).toBe(2);
+    expect(res.stderr).toContain("Cannot use --color and --no-color together");
+  });
+
   it("prints warnings to stderr in human list mode", () => {
     const fixtureRoot = join(root, "packages/core/test/fixtures/claude");
     const res = run(["list", "--roots", `claude-code:${fixtureRoot}`, "--tool", "claude-code"]);

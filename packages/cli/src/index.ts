@@ -37,6 +37,9 @@ async function main(): Promise<void> {
     .command("doctor")
     .description("Check local log access, adapters, and pricing table")
     .option("--json", "Machine-readable JSON output")
+    .option("--plain", "Plain human output (no charts, no ANSI, ASCII only)")
+    .option("--color", "Force ANSI color in rich human output")
+    .option("--no-color", "Disable ANSI color")
     .option("--roots <spec>", "Override log roots as tool:path (repeatable)", collect, [])
     .action(async (opts) => {
       process.exit(await runDoctorCommand(opts));

@@ -25,6 +25,8 @@ export type {
   SessionSummary,
   SearchMatch,
   StatsReport,
+  DailyBurnEntry,
+  TokenBreakdown,
   ListEnvelope,
   SearchEnvelope,
   StatsEnvelope,
