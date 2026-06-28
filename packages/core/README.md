@@ -64,6 +64,13 @@ const withRawPaths = sanitizeForExport(session, { rawPaths: true });
 
 Normalized sessions use the `logsesh.session.v1` schema version.
 
+`logsesh.stats.v1` gained additive fields in v0.2.0:
+
+- `dailyBurn` — chronological per-day session/turn/token totals (no gap-filling)
+- `tokenBreakdown` — per-category token sums with `observed` field-presence flags and `observedSessionCount`
+
+Existing JSON fields and semantics are unchanged.
+
 ## License
 
 MIT

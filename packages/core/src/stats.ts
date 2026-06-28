@@ -1,5 +1,16 @@
-import type { Session, StatsReport } from "./types.js";
+import type { Session, StatsReport, TokenBreakdown, Usage } from "./types.js";
 import { anonymizePath } from "./util.js";
+
+const TOKEN_CATEGORY_FIELDS = {
+  input: "inputTokens",
+  output: "outputTokens",
+  cacheRead: "cacheReadTokens",
+  cacheWrite: "cacheWriteTokens",
+  reasoning: "reasoningTokens",
+} as const satisfies Record<
+  keyof Omit<TokenBreakdown, "observed" | "observedSessionCount">,
+  keyof Usage
+>;
 
 function sessionTokens(session: Session): number {
   return (
@@ -12,6 +23,24 @@ function sessionTokens(session: Session): number {
         (session.usage.reasoningTokens ?? 0)
       : 0)
   );
+}
+
+function emptyTokenBreakdown(): TokenBreakdown {
+  return {
+    input: 0,
+    output: 0,
+    cacheRead: 0,
+    cacheWrite: 0,
+    reasoning: 0,
+    observed: {
+      input: false,
+      output: false,
+      cacheRead: false,
+      cacheWrite: false,
+      reasoning: false,
+    },
+    observedSessionCount: 0,
+  };
 }
 
 export class StatsAggregator {
@@ -27,7 +56,8 @@ export class StatsAggregator {
   unpricedTokens = 0;
   byTool: StatsReport["byTool"] = {};
   byProject: StatsReport["byProject"] = {};
-  dayCounts = new Map<string, { sessions: number; turns: number }>();
+  dayCounts = new Map<string, { sessions: number; turns: number; tokens: number }>();
+  tokenBreakdown = emptyTokenBreakdown();
 
   add(session: Session): void {
     this.sessionCount++;
@@ -35,6 +65,22 @@ export class StatsAggregator {
 
     const tokens = sessionTokens(session);
     this.totalTokens += tokens;
+
+    if (session.usage) {
+      let sessionObserved = false;
+      for (const [category, field] of Object.entries(TOKEN_CATEGORY_FIELDS) as Array<
+        [keyof typeof TOKEN_CATEGORY_FIELDS, keyof Usage]
+      >) {
+        if (Object.hasOwn(session.usage, field)) {
+          sessionObserved = true;
+          this.tokenBreakdown[category] += session.usage[field] ?? 0;
+          this.tokenBreakdown.observed[category] = true;
+        }
+      }
+      if (sessionObserved) {
+        this.tokenBreakdown.observedSessionCount++;
+      }
+    }
 
     if (session.costUsd !== null) {
       this.loggedCostUsd += session.costUsd;
@@ -61,9 +107,10 @@ export class StatsAggregator {
 
     const day = (session.startedAt ?? session.endedAt ?? "").slice(0, 10);
     if (day) {
-      const existing = this.dayCounts.get(day) ?? { sessions: 0, turns: 0 };
+      const existing = this.dayCounts.get(day) ?? { sessions: 0, turns: 0, tokens: 0 };
       existing.sessions++;
       existing.turns += session.turns.length;
+      existing.tokens += tokens;
       this.dayCounts.set(day, existing);
     }
   }
@@ -73,6 +120,15 @@ export class StatsAggregator {
       .map(([date, v]) => ({ date, sessions: v.sessions, turns: v.turns }))
       .sort((a, b) => b.sessions - a.sessions || b.turns - a.turns)
       .slice(0, 10);
+
+    const dailyBurn = [...this.dayCounts.entries()]
+      .map(([date, v]) => ({
+        date,
+        sessions: v.sessions,
+        turns: v.turns,
+        tokens: v.tokens,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
 
     return {
       sessionCount: this.sessionCount,
@@ -88,6 +144,8 @@ export class StatsAggregator {
       byTool: this.byTool,
       byProject: this.byProject,
       mostActiveDays,
+      dailyBurn,
+      tokenBreakdown: this.tokenBreakdown,
     };
   }
 }
