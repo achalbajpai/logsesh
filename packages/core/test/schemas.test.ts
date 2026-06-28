@@ -67,7 +67,7 @@ describe("schema validation", () => {
     expect(parsed.pricing.sources).toHaveLength(1);
   });
 
-  it("accepts stats v1 envelopes without v0.2 additive fields", () => {
+  it("requires current stats v1 additive fields", () => {
     const envelope = {
       format: "logsesh.stats.v1" as const,
       generatedAt: new Date().toISOString(),
@@ -84,10 +84,27 @@ describe("schema validation", () => {
         byTool: {},
         byProject: {},
         mostActiveDays: [],
+        dailyBurn: [],
+        tokenBreakdown: {
+          input: 0,
+          output: 0,
+          cacheRead: 0,
+          cacheWrite: 0,
+          reasoning: 0,
+          observed: {
+            input: false,
+            output: false,
+            cacheRead: false,
+            cacheWrite: false,
+            reasoning: false,
+          },
+          observedSessionCount: 0,
+        },
       },
       warnings: [],
     };
 
-    expect(statsEnvelopeSchema.parse(envelope).format).toBe("logsesh.stats.v1");
+    const parsed = statsEnvelopeSchema.parse(envelope);
+    expect(parsed.stats.tokenBreakdown.observedSessionCount).toBe(0);
   });
 });

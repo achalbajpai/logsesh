@@ -233,7 +233,6 @@ describe("StatsAggregator", () => {
     });
 
     expect(envelope.stats.dailyBurn).toHaveLength(1);
-    expect(envelope.stats.tokenBreakdown).toBeDefined();
-    expect(envelope.stats.tokenBreakdown?.observedSessionCount).toBe(1);
+    expect(envelope.stats.tokenBreakdown.observedSessionCount).toBe(1);
   });
 });

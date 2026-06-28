@@ -241,12 +241,10 @@ const statsReportSchema = z.object({
     z.object({ sessions: z.number(), turns: z.number(), tokens: z.number() }),
   ),
   mostActiveDays: z.array(z.object({ date: z.string(), sessions: z.number(), turns: z.number() })),
-  dailyBurn: z
-    .array(
-      z.object({ date: z.string(), sessions: z.number(), turns: z.number(), tokens: z.number() }),
-    )
-    .optional(),
-  tokenBreakdown: tokenBreakdownSchema.optional(),
+  dailyBurn: z.array(
+    z.object({ date: z.string(), sessions: z.number(), turns: z.number(), tokens: z.number() }),
+  ),
+  tokenBreakdown: tokenBreakdownSchema,
 });
 
 export const statsEnvelopeSchema = z.object({

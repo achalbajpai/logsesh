@@ -229,7 +229,9 @@
         "unpricedTokens",
         "byTool",
         "byProject",
-        "mostActiveDays"
+        "mostActiveDays",
+        "dailyBurn",
+        "tokenBreakdown"
       ],
       "additionalProperties": false
     },
