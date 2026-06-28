@@ -1,6 +1,6 @@
 {
   "name": "logsesh",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "Local-first CLI for AI coding agent session logs",
   "type": "module",
   "license": "MIT",

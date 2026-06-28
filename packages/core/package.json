@@ -1,6 +1,6 @@
 {
   "name": "@logsesh/core",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "Parse and normalize AI coding agent session logs",
   "type": "module",
   "license": "MIT",
