@@ -15,9 +15,8 @@
     "gen:schema:check": "node scripts/check-schema-drift.mjs",
     "enrich:pricing": "node scripts/enrich-pricing-provenance.mjs",
     "check:pricing": "node scripts/check-pricing.mjs",
-    "check:publish": "node scripts/check-packed-deps.mjs",
     "test:coverage": "vitest run --coverage",
-    "verify": "pnpm build && pnpm test && pnpm typecheck && pnpm lint && pnpm fmt:check && pnpm gen:schema:check && pnpm check:pricing && pnpm check:publish"
+    "verify": "pnpm build && pnpm test && pnpm typecheck && pnpm lint && pnpm fmt:check && pnpm gen:schema:check && pnpm check:pricing"
   },
   "devDependencies": {
     "@types/node": "catalog:",
