@@ -18,6 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: pnpm/action-setup@v4
         with:
@@ -36,16 +38,33 @@ jobs:
         run: pnpm verify
 
       - name: Publish core package
-        run: pnpm --filter @logsesh/core publish --access public --provenance --no-git-checks
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if npm view "@logsesh/core@$version" version >/dev/null 2>&1; then
+            echo "@logsesh/core@$version is already published; skipping"
+          else
+            pnpm --filter @logsesh/core publish --access public --provenance --no-git-checks
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish CLI package
-        run: pnpm --filter logsesh publish --access public --provenance --no-git-checks
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if npm view "logsesh@$version" version >/dev/null 2>&1; then
+            echo "logsesh@$version is already published; skipping"
+          else
+            pnpm --filter logsesh publish --access public --provenance --no-git-checks
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub release
-        run: gh release create "$GITHUB_REF_NAME" --generate-notes
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "GitHub release $GITHUB_REF_NAME already exists; skipping"
+          else
+            gh release create "$GITHUB_REF_NAME" --generate-notes
+          fi
         env:
           GH_TOKEN: ${{ github.token }}
