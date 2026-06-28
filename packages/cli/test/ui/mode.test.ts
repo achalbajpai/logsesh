@@ -98,6 +98,11 @@ describe("resolveRenderMode", () => {
     expect(resolveRenderMode({ color: true }, mockStream(true)).color).toBe(true);
   });
 
+  it("lets explicit --color override NO_COLOR", () => {
+    process.env.NO_COLOR = "1";
+    expect(resolveRenderMode({ color: true }, mockStream(true)).color).toBe(true);
+  });
+
   it("forces color with FORCE_COLOR without changing plain mode when piped", () => {
     process.env.FORCE_COLOR = "1";
     expect(resolveRenderMode({}, mockStream(false))).toEqual({

@@ -7,7 +7,6 @@ export interface SharedCommandOptions {
   json?: boolean;
   plain?: boolean;
   color?: boolean;
-  noColor?: boolean;
   estimateCost?: boolean;
   maxFileBytes?: number;
   maxTurnChars?: number;

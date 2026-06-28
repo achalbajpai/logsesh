@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { kv, rule, termWidth, truncateMiddle } from "../../src/ui/layout.js";
 
 describe("termWidth", () => {
-  it("clamps terminal width between 60 and 120", () => {
-    expect(termWidth({ columns: 40, isTTY: true } as NodeJS.WriteStream)).toBe(60);
+  it("preserves real narrow terminal widths and caps wide terminals", () => {
+    expect(termWidth({ columns: 40, isTTY: true } as NodeJS.WriteStream)).toBe(40);
     expect(termWidth({ columns: 200, isTTY: true } as NodeJS.WriteStream)).toBe(120);
     expect(termWidth({ columns: 80, isTTY: true } as NodeJS.WriteStream)).toBe(80);
   });

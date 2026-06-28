@@ -37,10 +37,16 @@ function resolveOutputMode(opts: RenderOptions, stream: WriteStream): "rich" | "
 }
 
 function resolveColor(opts: RenderOptions, stream: WriteStream): boolean {
-  if (opts.noColor || opts.color === false || process.env.NO_COLOR !== undefined) {
+  if (opts.noColor || opts.color === false) {
     return false;
   }
-  if (opts.color === true || process.env.FORCE_COLOR !== undefined) {
+  if (opts.color === true) {
+    return true;
+  }
+  if (process.env.NO_COLOR !== undefined) {
+    return false;
+  }
+  if (process.env.FORCE_COLOR !== undefined) {
     return true;
   }
   return stream.isTTY === true;

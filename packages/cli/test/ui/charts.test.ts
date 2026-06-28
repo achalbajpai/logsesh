@@ -18,7 +18,7 @@ describe("hbar", () => {
 
 describe("sparkline", () => {
   it("maps values to spark characters", () => {
-    expect(sparkline([1, 2, 3, 4])).toMatch(/^[▁▂▃▄▅▆▇█]+$/);
+    expect(sparkline([1, 2, 3, 4])).toBe("▁▃▆█");
   });
 
   it("returns empty output when all values are zero", () => {

@@ -1,12 +1,11 @@
 import type { WriteStream } from "node:tty";
 
-const MIN_WIDTH = 60;
 const MAX_WIDTH = 120;
 const DEFAULT_WIDTH = 80;
 
 export function termWidth(stream: WriteStream = process.stdout): number {
   const columns = stream.columns ?? DEFAULT_WIDTH;
-  return Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, columns));
+  return Math.min(MAX_WIDTH, columns);
 }
 
 export function heading(title: string): string {
@@ -44,6 +43,10 @@ export function sanitizeControl(text: string): string {
   const twoByte = new RegExp(`${esc}[@-_]`, "g");
   const controls = new RegExp(`[${c(0)}-${c(8)}${c(11)}-${c(31)}${c(127)}-${c(159)}]`, "g");
   return text.replace(csi, "").replace(osc, "").replace(twoByte, "").replace(controls, "");
+}
+
+export function sanitizeInline(text: string): string {
+  return sanitizeControl(text).replace(/[\t\r\n]+/g, " ");
 }
 
 export function visibleWidth(text: string): number {

@@ -2,7 +2,7 @@ import type { SearchMatch } from "@logsesh/core";
 import { parseSearchQuery } from "@logsesh/core";
 import type { WriteStream } from "node:tty";
 import { formatProject } from "../util/format.js";
-import { rule, sanitizeControl, stripAnsi, termWidth } from "./layout.js";
+import { rule, sanitizeControl, sanitizeInline, stripAnsi, termWidth } from "./layout.js";
 import type { RenderMode } from "./mode.js";
 import { createTheme } from "./theme.js";
 
@@ -49,11 +49,15 @@ export function highlightSnippet(
 }
 
 function renderMatchHeader(match: SearchMatch, mode: RenderMode): string {
+  const toolLabel = sanitizeInline(match.tool);
+  const project = formatProject(sanitizeInline(match.projectPath ?? "-"), 28);
+  const timestamp = sanitizeInline(match.timestamp ?? "-");
+  const sessionId = sanitizeInline(match.sessionId);
   if (mode.mode === "plain") {
-    return `${match.tool}  ${formatProject(match.projectPath, 28)}  ${match.timestamp ?? "-"}  ${match.sessionId}`;
+    return `${toolLabel}  ${project}  ${timestamp}  ${sessionId}`;
   }
   const theme = createTheme(mode);
-  return `${theme.tool(match.tool, match.tool)}  ${formatProject(match.projectPath, 28)}  ${match.timestamp ?? "-"}  ${match.sessionId}`;
+  return `${theme.tool(match.tool, toolLabel)}  ${project}  ${timestamp}  ${sessionId}`;
 }
 
 export function renderSearchMatch(

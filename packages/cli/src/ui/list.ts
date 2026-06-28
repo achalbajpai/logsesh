@@ -21,11 +21,9 @@ function formatProjectPlain(path: string | undefined, width: number): string {
 }
 
 function formatCostPlain(costUsd: number | null, estimate?: Estimate): string {
-  if (typeof estimate?.costUsd === "number") {
-    return `~$${estimate.costUsd.toFixed(2)} est`;
-  }
-  if (costUsd === null) return "unknown";
-  return `$${costUsd.toFixed(2)}`;
+  if (costUsd !== null) return `$${costUsd.toFixed(2)}`;
+  if (typeof estimate?.costUsd === "number") return `~$${estimate.costUsd.toFixed(2)} est`;
+  return "unknown";
 }
 
 function formatCostRich(
@@ -33,11 +31,10 @@ function formatCostRich(
   estimate: Estimate | undefined,
   theme: ReturnType<typeof createTheme>,
 ): string {
-  if (typeof estimate?.costUsd === "number") {
+  if (costUsd !== null) return `$${costUsd.toFixed(2)}`;
+  if (typeof estimate?.costUsd === "number")
     return theme.accent(`~$${estimate.costUsd.toFixed(2)} est`);
-  }
-  if (costUsd === null) return theme.muted("unknown");
-  return `$${costUsd.toFixed(2)}`;
+  return theme.muted("unknown");
 }
 
 interface ListRow {

@@ -22,6 +22,12 @@ const sampleSessions: SessionSummary[] = [
     turnCount: 3,
     totalTokens: 1200,
     costUsd: 1.25,
+    estimate: {
+      costUsd: 0.99,
+      pricingVersion: "test",
+      pricingAsOf: "2026-06-01",
+      includesCacheTokens: false,
+    },
     sourcePath: "log2.jsonl",
   },
 ];
@@ -84,5 +90,16 @@ describe("renderList", () => {
       expect(visibleWidth(line)).toBeLessThanOrEqual(60);
     }
     expect(lines[1]).toMatch(/unknown$/);
+  });
+
+  it("prefers logged cost over estimates", () => {
+    const lines = renderList(
+      sampleSessions,
+      { mode: "plain", color: false, unicode: false },
+      { filters: "no filters", stream: mockStream },
+    );
+
+    expect(lines[2]).toContain("$1.25");
+    expect(lines[2]).not.toContain("~$0.99 est");
   });
 });

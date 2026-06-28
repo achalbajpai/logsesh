@@ -4,6 +4,7 @@ import {
   listEnvelopeSchema,
   publicSessionSchema,
   sessionSchema,
+  statsEnvelopeSchema,
 } from "../src/schemas.js";
 import { sanitizeForExport } from "../src/sanitize.js";
 import type { Session } from "../src/types.js";
@@ -64,5 +65,29 @@ describe("schema validation", () => {
     };
     const parsed = doctorEnvelopeSchema.parse(envelope);
     expect(parsed.pricing.sources).toHaveLength(1);
+  });
+
+  it("accepts stats v1 envelopes without v0.2 additive fields", () => {
+    const envelope = {
+      format: "logsesh.stats.v1" as const,
+      generatedAt: new Date().toISOString(),
+      stats: {
+        sessionCount: 0,
+        turnCount: 0,
+        totalTokens: 0,
+        loggedCostUsd: null,
+        loggedSessionCount: 0,
+        estimatedCostUsd: null,
+        estimatedSessionCount: 0,
+        unpricedSessionCount: 0,
+        unpricedTokens: 0,
+        byTool: {},
+        byProject: {},
+        mostActiveDays: [],
+      },
+      warnings: [],
+    };
+
+    expect(statsEnvelopeSchema.parse(envelope).format).toBe("logsesh.stats.v1");
   });
 });

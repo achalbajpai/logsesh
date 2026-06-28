@@ -79,6 +79,23 @@ describe("renderSearchMatch sanitization", () => {
       expect(stripAnsi(body)).toContain("wipe auth here");
     }
   });
+
+  it("sanitizes terminal control characters from match headers", () => {
+    const lines = renderSearchMatch(
+      {
+        sessionId: `s1${ESC}[2J`,
+        tool: "claude-code",
+        projectPath: `demo\nnext${ESC}[31m`,
+        timestamp: `2026-06-01T00:00:00Z${ESC}]0;title${String.fromCharCode(7)}`,
+        snippets: ["auth"],
+        totalHits: 1,
+      },
+      "auth",
+      { mode: "plain", color: false, unicode: false },
+    );
+
+    expect(lines[0]).toBe("claude-code  demo next  2026-06-01T00:00:00Z  s1");
+  });
 });
 
 describe("renderSearch rich output", () => {

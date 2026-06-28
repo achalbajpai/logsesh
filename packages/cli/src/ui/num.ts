@@ -1,7 +1,9 @@
 export function humanizeTokens(n: number | undefined): string {
   if (n === undefined) return "-";
   if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(2)}B`;
+  if (n >= 999_995_000) return "1.00B";
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 999_950) return "1.00M";
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
   return String(n);
 }

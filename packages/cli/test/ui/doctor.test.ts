@@ -42,6 +42,8 @@ const sampleReport: DoctorReport = {
   warnings: [],
 };
 
+const ESC = String.fromCharCode(27);
+
 function isAscii(text: string): boolean {
   for (let index = 0; index < text.length; index++) {
     if (text.charCodeAt(index) > 127) return false;
@@ -71,6 +73,29 @@ describe("renderDoctor", () => {
     };
     const lines = renderDoctor(report, { mode: "plain", color: false, unicode: false });
     expect(lines.some((line) => line.includes("err - permission denied"))).toBe(true);
+  });
+
+  it("renders public warnings without terminal control sequences", () => {
+    const report: DoctorReport = {
+      ...sampleReport,
+      warnings: [
+        {
+          code: `discovery_error${ESC}[2J`,
+          message: `failed\nroot${ESC}[31m`,
+          severity: "warn",
+          scope: "discovery",
+          sessionId: `s1${ESC}[0m`,
+          line: 12,
+          cause: `EACCES${ESC}]0;title${String.fromCharCode(7)}`,
+        },
+      ],
+    };
+
+    const lines = renderDoctor(report, { mode: "plain", color: false, unicode: false });
+    expect(lines).toContain("Warnings");
+    expect(lines.at(-1)).toBe(
+      "  warn: discovery:discovery_error failed root session=s1 line=12 cause=EACCES",
+    );
   });
 
   it("aligns key/value rows with kv()", () => {

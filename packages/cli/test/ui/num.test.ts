@@ -12,6 +12,11 @@ describe("humanizeTokens", () => {
     expect(humanizeTokens(45_000)).toBe("45.0k");
   });
 
+  it("promotes values that would round to the next unit", () => {
+    expect(humanizeTokens(999_950)).toBe("1.00M");
+    expect(humanizeTokens(999_995_000)).toBe("1.00B");
+  });
+
   it("passes through small integers", () => {
     expect(humanizeTokens(42)).toBe("42");
   });

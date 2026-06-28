@@ -1,5 +1,5 @@
 import type { DoctorReport, DoctorToolReport } from "@logsesh/core";
-import { kv } from "./layout.js";
+import { kv, sanitizeInline } from "./layout.js";
 import type { RenderMode } from "./mode.js";
 import { createTheme } from "./theme.js";
 
@@ -42,6 +42,29 @@ function formatStatus(
 function formatCapabilities(tool: DoctorToolReport): string {
   const caps = tool.capabilities;
   return `model=${caps.model}, usage=${caps.usage}, transcript=${caps.transcript}, toolCalls=${caps.toolCalls}, reasoning=${caps.reasoning}`;
+}
+
+function formatWarning(
+  warning: DoctorReport["warnings"][number],
+  mode: RenderMode,
+  theme: ReturnType<typeof createTheme>,
+): string {
+  const severity =
+    mode.mode === "plain"
+      ? warning.severity
+      : warning.severity === "error"
+        ? theme.err(warning.severity)
+        : warning.severity === "warn"
+          ? theme.warn(warning.severity)
+          : theme.muted(warning.severity);
+  const details = [
+    `${sanitizeInline(warning.scope)}:${sanitizeInline(warning.code)}`,
+    sanitizeInline(warning.message),
+  ];
+  if (warning.sessionId) details.push(`session=${sanitizeInline(warning.sessionId)}`);
+  if (typeof warning.line === "number") details.push(`line=${warning.line}`);
+  if (warning.cause) details.push(`cause=${sanitizeInline(warning.cause)}`);
+  return `${severity}: ${details.join(" ")}`;
 }
 
 export function renderDoctor(report: DoctorReport, mode: RenderMode): string[] {
@@ -97,6 +120,14 @@ export function renderDoctor(report: DoctorReport, mode: RenderMode): string[] {
       for (const note of tool.capabilities.notes) {
         lines.push(`    note: ${note}`);
       }
+    }
+  }
+
+  if (report.warnings.length > 0) {
+    lines.push("");
+    lines.push(heading("Warnings", mode, theme));
+    for (const warning of report.warnings) {
+      lines.push(`  ${formatWarning(warning, mode, theme)}`);
     }
   }
 

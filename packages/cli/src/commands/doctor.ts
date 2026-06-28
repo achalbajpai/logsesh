@@ -7,7 +7,6 @@ export interface DoctorOptions {
   json?: boolean;
   plain?: boolean;
   color?: boolean;
-  noColor?: boolean;
   roots?: string[];
 }
 
