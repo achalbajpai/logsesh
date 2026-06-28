@@ -16,6 +16,9 @@ export function sharedOptions(cmd: Command): Command {
       'Filter sessions (e.g. auth, project:myapp, project:myapp AND "rate limit")',
     )
     .option("--json", "Machine-readable JSON output")
+    .option("--plain", "Plain human output (no charts, no ANSI, ASCII only)")
+    .option("--color", "Force ANSI color in rich human output")
+    .option("--no-color", "Disable ANSI color")
     .option("--estimate-cost", "Show estimated cost (never replaces canonical costUsd)")
     .option("--max-file-bytes <n>", "Skip files larger than N bytes", parseInt)
     .option("--max-turn-chars <n>", "Truncate turn text at N characters", parseInt)

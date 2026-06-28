@@ -1,12 +1,25 @@
 import { doctorEnvelopeSchema, parseRootsOverride, runDoctor } from "@logsesh/core";
 import { printWarningsToStderr } from "../util/format.js";
+import { renderDoctor } from "../ui/doctor.js";
+import { resolveRenderMode, validateRenderOptions } from "../ui/mode.js";
 
 export interface DoctorOptions {
   json?: boolean;
+  plain?: boolean;
+  color?: boolean;
+  noColor?: boolean;
   roots?: string[];
 }
 
 export async function runDoctorCommand(opts: DoctorOptions): Promise<number> {
+  if (!opts.json) {
+    const renderError = validateRenderOptions(opts);
+    if (renderError) {
+      console.error(renderError);
+      return 2;
+    }
+  }
+
   let roots: ReturnType<typeof parseRootsOverride>["roots"] | undefined;
   if (opts.roots && opts.roots.length > 0) {
     const parsed = parseRootsOverride(opts.roots);
@@ -27,48 +40,9 @@ export async function runDoctorCommand(opts: DoctorOptions): Promise<number> {
 
   printWarningsToStderr(report.warnings ?? []);
 
-  console.log("Pricing table");
-  console.log(`  version: ${report.pricing.version}`);
-  console.log(`  as of:   ${report.pricing.asOf}`);
-  console.log(`  models:  ${report.pricing.modelCount}`);
-  console.log("  sources:");
-  for (const source of report.pricing.sources) {
-    console.log(`    ${source.provider}: ${source.url} (as of ${source.asOf})`);
-  }
-  console.log("");
-  console.log("Export defaults");
-  console.log(
-    `  transcript redact: ${report.exportDefaults.transcriptRedactDefault ? "on (use --allow-sensitive to opt out)" : "off"}`,
-  );
-  console.log(
-    `  summary CSV redact:  ${report.exportDefaults.summaryCsvRedactRequired ? "required" : "optional"}`,
-  );
-  console.log(
-    `  anonymize paths:     ${report.exportDefaults.anonymizePathsDefault ? "on" : "off"}`,
-  );
-  console.log("");
-  console.log("Adapters");
-
-  for (const tool of report.tools) {
-    const status = tool.rootAccessible
-      ? tool.candidateFiles > 0
-        ? `${tool.candidateFilesCapped ? ">=" : ""}${tool.candidateFiles} log file(s)`
-        : "root readable, no log files found"
-      : tool.permissionIssue
-        ? "permission denied"
-        : "not detected";
-    console.log(`  ${tool.tool}`);
-    console.log(`    root:         ${tool.root}`);
-    console.log(`    status:       ${status}`);
-    console.log(`    adapter:      ${tool.adapterVersion}`);
-    console.log(
-      `    capabilities: model=${tool.capabilities.model}, usage=${tool.capabilities.usage}, transcript=${tool.capabilities.transcript}, toolCalls=${tool.capabilities.toolCalls}, reasoning=${tool.capabilities.reasoning}`,
-    );
-    if (tool.capabilities.notes?.length) {
-      for (const note of tool.capabilities.notes) {
-        console.log(`    note:         ${note}`);
-      }
-    }
+  const renderMode = resolveRenderMode(opts);
+  for (const line of renderDoctor(report, renderMode)) {
+    console.log(line);
   }
 
   return 0;

@@ -60,6 +60,12 @@ describe("command handlers", () => {
     expect(logs.join("\n")).toContain("claude-code");
   });
 
+  it("runList prints empty state for no matches", async () => {
+    expect(await runList({ ...claudeOpts, query: "zzzznotfound" })).toBe(0);
+    expect(logs.join("\n")).toContain("no sessions matched");
+    expect(logs.join("\n")).toContain("query=zzzznotfound");
+  });
+
   it("runList treats multiple project filters as OR", async () => {
     expect(
       await runList({
@@ -86,9 +92,14 @@ describe("command handlers", () => {
   it("runStats prints human summary lines", async () => {
     expect(await runStats({ ...claudeOpts, estimateCost: true })).toBe(0);
     const out = logs.join("\n");
-    expect(out).toContain("Sessions:");
-    expect(out).toContain("Logged cost:");
-    expect(out).toContain("Estimated cost:");
+    expect(out).toContain("Sessions");
+    expect(out).toContain("Logged cost");
+    expect(out).toContain("Estimated cost");
+  });
+
+  it("runStats prints empty state for no matches", async () => {
+    expect(await runStats({ ...claudeOpts, query: "zzzznotfound" })).toBe(0);
+    expect(logs.join("\n")).toContain("no sessions matched");
   });
 
   it("runDoctorCommand returns json report", async () => {

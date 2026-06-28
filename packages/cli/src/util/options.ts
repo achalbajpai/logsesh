@@ -5,6 +5,9 @@ export interface SharedCommandOptions {
   until?: string;
   query?: string;
   json?: boolean;
+  plain?: boolean;
+  color?: boolean;
+  noColor?: boolean;
   estimateCost?: boolean;
   maxFileBytes?: number;
   maxTurnChars?: number;
