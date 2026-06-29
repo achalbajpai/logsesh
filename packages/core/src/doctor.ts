@@ -104,7 +104,7 @@ export async function runDoctor(opts: DiscoverOptions = {}): Promise<DoctorRepor
       sources: PRICING_SOURCES,
       modelCount: PRICING_MODEL_COUNT,
     },
-    exportDefaults: EXPORT_DEFAULTS,
+    exportDefaults: { ...EXPORT_DEFAULTS },
     warnings: toPublicWarnings(warnings),
   };
 }

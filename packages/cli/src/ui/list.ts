@@ -75,9 +75,10 @@ function renderPlainTable(sessions: SessionSummary[], width: number): string[] {
   const { dateW, toolW, projectW, turnsW, tokensW, costW } = columnWidths(rows, width);
   const header = ["DATE", "TOOL", truncateMiddle("PROJECT", projectW), "TURNS", "TOKENS", "COST"];
   const widths = [dateW, toolW, projectW, turnsW, tokensW, costW];
+  const gap = " ".repeat(LIST_COL_GAP);
 
   const lines: string[] = [];
-  lines.push(header.map((cell, index) => cell.padEnd(widths[index]!)).join("  "));
+  lines.push(header.map((cell, index) => cell.padEnd(widths[index]!)).join(gap));
 
   for (let i = 0; i < sessions.length; i++) {
     const row = rows[i]!;
@@ -94,7 +95,7 @@ function renderPlainTable(sessions: SessionSummary[], width: number): string[] {
         .map((cell, index) =>
           index >= 3 ? padLeft(cell, widths[index]!) : cell.padEnd(widths[index]!),
         )
-        .join("  "),
+        .join(gap),
     );
   }
 
