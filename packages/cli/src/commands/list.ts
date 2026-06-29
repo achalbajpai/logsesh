@@ -1,5 +1,6 @@
 import type { Warning } from "@logsesh/core";
 import {
+  LIST_ENVELOPE_FORMAT,
   applyEstimate,
   generatedAt,
   listEnvelopeSchema,
@@ -43,7 +44,7 @@ export async function runList(opts: SharedCommandOptions): Promise<number> {
 
   if (opts.json) {
     const envelope = {
-      format: "logsesh.list.v1" as const,
+      format: LIST_ENVELOPE_FORMAT,
       generatedAt: generatedAt(),
       sessions,
       warnings: toPublicWarnings(warnings),

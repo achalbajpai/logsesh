@@ -1,3 +1,4 @@
+import { JSONL_RECORD_FORMAT } from "../constants.js";
 import type { ExportSession, ExportTurn, JsonlRecord, PublicWarning } from "../types.js";
 import { generatedAt } from "../schemas.js";
 
@@ -6,7 +7,7 @@ export function exportJsonlRecord(
   warnings?: PublicWarning[],
 ): JsonlRecord<ExportSession | ExportTurn> {
   return {
-    format: "logsesh.jsonl.v1",
+    format: JSONL_RECORD_FORMAT,
     generatedAt: generatedAt(),
     record,
     warnings,

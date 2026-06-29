@@ -1,15 +1,13 @@
+import { ANSI_ESCAPE_PATTERN, ANSI_RESET, CHART_BLOCK, CHART_SPARK_CHARS } from "../constants.js";
 import { visibleWidth } from "./layout.js";
 
-const BLOCK = "█";
-const SPARK_CHARS = "▁▂▃▄▅▆▇█";
-
-export function hbar(value: number, max: number, width: number, fill = BLOCK): string {
+export function hbar(value: number, max: number, width: number, fill = CHART_BLOCK): string {
   if (width <= 0 || max <= 0 || value <= 0) return "";
   const filled = Math.min(width, Math.max(1, Math.round((value / max) * width)));
   return fill.repeat(filled);
 }
 
-export function sparkline(values: number[], chars = SPARK_CHARS): string {
+export function sparkline(values: number[], chars = CHART_SPARK_CHARS): string {
   if (values.length === 0) return "";
   const min = Math.min(...values);
   const max = Math.max(...values);
@@ -42,15 +40,11 @@ export function stackedBar(segments: StackedSegment[], width: number): string {
     const segmentWidth =
       i === positive.length - 1 ? width - used : Math.floor((segment.value / total) * width);
     if (segmentWidth <= 0) continue;
-    bar += segment.paint(BLOCK.repeat(segmentWidth));
+    bar += segment.paint(CHART_BLOCK.repeat(segmentWidth));
     used += segmentWidth;
   }
   return bar;
 }
-
-const esc = String.fromCharCode(27);
-const ANSI_RESET = `${esc}[0m`;
-const ANSI_ESCAPE = new RegExp(`^${esc}\\[[0-9;]*m`);
 
 export function truncateAnsi(text: string, width: number): string {
   if (width <= 0) return "";
@@ -59,7 +53,7 @@ export function truncateAnsi(text: string, width: number): string {
   let visible = 0;
   let styled = false;
   for (let i = 0; i < text.length && visible < width; ) {
-    const esc = ANSI_ESCAPE.exec(text.slice(i));
+    const esc = ANSI_ESCAPE_PATTERN.exec(text.slice(i));
     if (esc) {
       out += esc[0];
       styled = true;

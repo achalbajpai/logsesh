@@ -1,3 +1,4 @@
+import { DEFAULT_PARSE_CONCURRENCY } from "./constants.js";
 import type {
   ParseOptions,
   PipelineOptions,
@@ -21,9 +22,6 @@ export interface PipelineResult {
   session?: Session;
   warnings: Warning[];
 }
-
-const DEFAULT_PARSE_CONCURRENCY = 4;
-
 interface OrderedBatch {
   order: number;
   results: PipelineResult[];

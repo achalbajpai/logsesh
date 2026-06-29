@@ -1,3 +1,4 @@
+import { JSON_EXPORT_ENVELOPE_FORMAT } from "../constants.js";
 import type { ExportSession, ExportTurn, JsonExportEnvelope, PublicWarning } from "../types.js";
 import { generatedAt } from "../schemas.js";
 
@@ -7,7 +8,7 @@ export function exportJsonEnvelope(
   warnings?: PublicWarning[],
 ): JsonExportEnvelope<ExportSession | ExportTurn> {
   return {
-    format: "logsesh.export.v1",
+    format: JSON_EXPORT_ENVELOPE_FORMAT,
     generatedAt: generatedAt(),
     granularity,
     records,

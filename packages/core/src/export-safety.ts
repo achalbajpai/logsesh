@@ -1,3 +1,5 @@
+import { EXPORT_FILE_MODE } from "./constants.js";
+
 export function escapeCsvCell(value: string): string {
   let cell = value;
   if (/^[=+\-@\t\r]/.test(cell)) {
@@ -25,7 +27,7 @@ export async function writeExportFile(
   const { writeFile } = await import("node:fs/promises");
   try {
     await writeFile(path, content, {
-      mode: 0o600,
+      mode: EXPORT_FILE_MODE,
       encoding: "utf8",
       flag: opts.force ? "w" : "wx",
     });

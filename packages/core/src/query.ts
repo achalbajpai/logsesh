@@ -1,3 +1,5 @@
+import { KNOWN_QUERY_FIELDS, QUERY_FIELD_PATTERN } from "./constants.js";
+
 interface QueryFields {
   project?: string[];
 }
@@ -8,10 +10,6 @@ export interface ParsedQuery {
   operator: "AND" | "OR";
   fields: QueryFields;
 }
-
-const KNOWN_QUERY_FIELDS = new Set(["project"]);
-const FIELD_PATTERN = /\b([a-z][a-z0-9_-]*):("([^"]*)"|(\S+))/gi;
-
 export function parseQuery(input: string): ParsedQuery {
   const trimmed = input.trim();
   if (!trimmed) return { terms: [], phrases: [], operator: "OR", fields: {} };
@@ -19,8 +17,8 @@ export function parseQuery(input: string): ParsedQuery {
   const fields: QueryFields = {};
   const fieldSpans: Array<{ start: number; end: number }> = [];
   let match: RegExpExecArray | null;
-  FIELD_PATTERN.lastIndex = 0;
-  while ((match = FIELD_PATTERN.exec(trimmed)) !== null) {
+  QUERY_FIELD_PATTERN.lastIndex = 0;
+  while ((match = QUERY_FIELD_PATTERN.exec(trimmed)) !== null) {
     const key = match[1]!.toLowerCase();
     if (!KNOWN_QUERY_FIELDS.has(key)) continue;
     const value = match[3] ?? match[4] ?? "";

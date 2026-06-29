@@ -1,30 +1,13 @@
-const BUILTIN_PATTERNS: RegExp[] = [
-  /sk-[A-Za-z0-9_-]{20,}/g,
-  /sk_(?:test|live)_[A-Za-z0-9]{20,}/g,
-  /sk-proj-[A-Za-z0-9_-]{20,}/g,
-  /sk-ant-[A-Za-z0-9\-_]{20,}/g,
-  /ghp_[A-Za-z0-9]{20,}/g,
-  /gho_[A-Za-z0-9]{20,}/g,
-  /github_pat_[A-Za-z0-9_]{20,}/g,
-  /glpat-[A-Za-z0-9\-_]{20,}/g,
-  /npm_[A-Za-z0-9]{36,}/g,
-  /xox[baprs]-[A-Za-z0-9-]{10,}/g,
-  /AKIA[0-9A-Z]{16}/g,
-  /ASIA[0-9A-Z]{16}/g,
-  /eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g,
-  /Bearer\s+[A-Za-z0-9\-._~+/]+=*/gi,
-  /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/g,
-  /(?:^|[\s;])(?:API_KEY|SECRET|PASSWORD|TOKEN)\s*=\s*[^\s#]+/gim,
-];
+import { BUILTIN_REDACT_PATTERNS, REDACTED_PLACEHOLDER } from "./constants.js";
 
 export function getBuiltinPatterns(): RegExp[] {
-  return BUILTIN_PATTERNS.map((p) => new RegExp(p.source, p.flags));
+  return BUILTIN_REDACT_PATTERNS.map((p) => new RegExp(p.source, p.flags));
 }
 
 export function redactText(text: string, extraPatterns: RegExp[] = []): string {
   let result = text;
   for (const pattern of [...getBuiltinPatterns(), ...extraPatterns]) {
-    result = result.replace(pattern, "[REDACTED]");
+    result = result.replace(pattern, REDACTED_PLACEHOLDER);
   }
   return result;
 }

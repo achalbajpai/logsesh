@@ -1,4 +1,5 @@
 import type { Writable } from "node:stream";
+import { JSON_EXPORT_ENVELOPE_FORMAT } from "../constants.js";
 import type { ExportSession, ExportTurn, PublicWarning } from "../types.js";
 import { generatedAt } from "../schemas.js";
 
@@ -15,7 +16,7 @@ export function beginJsonExportStream(
   const pretty = opts.pretty ?? false;
   const spacer = pretty ? 2 : undefined;
   const header = {
-    format: "logsesh.export.v1" as const,
+    format: JSON_EXPORT_ENVELOPE_FORMAT,
     generatedAt: generatedAt(),
     granularity: opts.granularity,
   };

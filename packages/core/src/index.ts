@@ -1,5 +1,26 @@
 export type {
   ToolName,
+  SessionSchemaVersion,
+  ListEnvelopeFormat,
+  SearchEnvelopeFormat,
+  StatsEnvelopeFormat,
+  DebugEnvelopeFormat,
+  JsonExportEnvelopeFormat,
+  JsonlRecordFormat,
+  DoctorEnvelopeFormat,
+} from "./constants.js";
+export {
+  SESSION_SCHEMA_VERSION,
+  LIST_ENVELOPE_FORMAT,
+  SEARCH_ENVELOPE_FORMAT,
+  STATS_ENVELOPE_FORMAT,
+  DEBUG_ENVELOPE_FORMAT,
+  JSON_EXPORT_ENVELOPE_FORMAT,
+  JSONL_RECORD_FORMAT,
+  DOCTOR_ENVELOPE_FORMAT,
+  TOOL_NAMES,
+} from "./constants.js";
+export type {
   ContentBlock,
   PublicWarning,
   PublicContentBlock,

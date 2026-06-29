@@ -20,14 +20,11 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 
-const ADAPTER_VERSION = "0.1.1";
-const IGNORED_TYPES = new Set([
-  "queue-operation",
-  "file-history-snapshot",
-  "ai-title",
-  "last-prompt",
-  "attachment",
-]);
+import {
+  ADAPTER_VERSIONS,
+  CLAUDE_IGNORED_LINE_TYPES,
+  DEFAULT_LOG_ROOT_SEGMENTS,
+} from "../constants.js";
 
 const claudeLineSchema = z.object({
   type: z.string().optional(),
@@ -87,12 +84,14 @@ function parseClaudeContentBlock(raw: unknown): ClaudeContentBlock | null {
 }
 
 function claudeRoot(opts: DiscoverOptions): string {
-  return opts.roots?.["claude-code"] ?? join(homedir(), ".claude", "projects");
+  return (
+    opts.roots?.["claude-code"] ?? join(homedir(), ...DEFAULT_LOG_ROOT_SEGMENTS["claude-code"])
+  );
 }
 
 export const claudeCodeAdapter: Adapter = {
   tool: "claude-code" as ToolName,
-  adapterVersion: ADAPTER_VERSION,
+  adapterVersion: ADAPTER_VERSIONS["claude-code"],
   capabilities: {
     discovery: "full",
     transcript: "full",
@@ -164,7 +163,7 @@ export const claudeCodeAdapter: Adapter = {
 
     const builder = new SessionBuilder({
       tool: "claude-code",
-      adapterVersion: ADAPTER_VERSION,
+      adapterVersion: ADAPTER_VERSIONS["claude-code"],
       sourcePath: file.path,
       sessionId,
       projectPath,
@@ -207,7 +206,7 @@ export const claudeCodeAdapter: Adapter = {
         }
 
         const record = lineParsed.data;
-        if (!record.type || IGNORED_TYPES.has(record.type)) return;
+        if (!record.type || CLAUDE_IGNORED_LINE_TYPES.has(record.type)) return;
 
         if (record.cwd) resolvedProjectPath = record.cwd;
 

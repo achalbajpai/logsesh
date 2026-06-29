@@ -26,7 +26,7 @@ import {
   requireCallId,
 } from "./codex-schemas.js";
 
-const ADAPTER_VERSION = "0.1.1";
+import { ADAPTER_VERSIONS, DEFAULT_LOG_ROOT_SEGMENTS } from "../constants.js";
 
 interface CodexTokenUsage {
   input_tokens?: number;
@@ -37,7 +37,7 @@ interface CodexTokenUsage {
 }
 
 function codexRoot(opts: DiscoverOptions): string {
-  return opts.roots?.codex ?? join(homedir(), ".codex", "sessions");
+  return opts.roots?.codex ?? join(homedir(), ...DEFAULT_LOG_ROOT_SEGMENTS.codex);
 }
 
 function mapCodexUsage(u: CodexTokenUsage): Usage {
@@ -70,7 +70,7 @@ function messageText(content: unknown): string {
 
 export const codexAdapter: Adapter = {
   tool: "codex" as ToolName,
-  adapterVersion: ADAPTER_VERSION,
+  adapterVersion: ADAPTER_VERSIONS.codex,
   capabilities: {
     discovery: "full",
     transcript: "partial",
@@ -118,7 +118,7 @@ export const codexAdapter: Adapter = {
 
     const builder = new SessionBuilder({
       tool: "codex",
-      adapterVersion: ADAPTER_VERSION,
+      adapterVersion: ADAPTER_VERSIONS.codex,
       sourcePath: file.path,
       sessionId,
       maxTurnChars: opts.maxTurnChars,

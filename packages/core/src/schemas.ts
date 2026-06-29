@@ -1,6 +1,17 @@
 import { z } from "zod";
+import {
+  DEBUG_ENVELOPE_FORMAT,
+  DOCTOR_ENVELOPE_FORMAT,
+  JSONL_RECORD_FORMAT,
+  JSON_EXPORT_ENVELOPE_FORMAT,
+  LIST_ENVELOPE_FORMAT,
+  SEARCH_ENVELOPE_FORMAT,
+  SESSION_SCHEMA_VERSION,
+  STATS_ENVELOPE_FORMAT,
+  TOOL_NAMES,
+} from "./constants.js";
 
-const toolNameSchema = z.enum(["claude-code", "codex", "gemini"]);
+const toolNameSchema = z.enum(TOOL_NAMES);
 
 const contentBlockSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("text"), text: z.string() }),
@@ -70,7 +81,7 @@ const estimateSchema = z.object({
 });
 
 export const sessionSchema = z.object({
-  schemaVersion: z.literal("logsesh.session.v1"),
+  schemaVersion: z.literal(SESSION_SCHEMA_VERSION),
   id: z.string(),
   source: z.object({
     tool: toolNameSchema,
@@ -151,7 +162,7 @@ const publicTurnSchema = z.object({
 });
 
 export const publicSessionSchema = z.object({
-  schemaVersion: z.literal("logsesh.session.v1"),
+  schemaVersion: z.literal(SESSION_SCHEMA_VERSION),
   id: z.string(),
   source: z.object({
     tool: toolNameSchema,
@@ -184,7 +195,7 @@ const sessionSummarySchema = z.object({
 });
 
 export const listEnvelopeSchema = z.object({
-  format: z.literal("logsesh.list.v1"),
+  format: z.literal(LIST_ENVELOPE_FORMAT),
   generatedAt: z.string(),
   sessions: z.array(sessionSummarySchema),
   warnings: z.array(publicWarningSchema).optional(),
@@ -200,7 +211,7 @@ const searchMatchSchema = z.object({
 });
 
 export const searchEnvelopeSchema = z.object({
-  format: z.literal("logsesh.search.v1"),
+  format: z.literal(SEARCH_ENVELOPE_FORMAT),
   generatedAt: z.string(),
   matches: z.array(searchMatchSchema),
   warnings: z.array(publicWarningSchema).optional(),
@@ -248,21 +259,21 @@ const statsReportSchema = z.object({
 });
 
 export const statsEnvelopeSchema = z.object({
-  format: z.literal("logsesh.stats.v1"),
+  format: z.literal(STATS_ENVELOPE_FORMAT),
   generatedAt: z.string(),
   stats: statsReportSchema,
   warnings: z.array(publicWarningSchema).optional(),
 });
 
 export const debugEnvelopeSchema = z.object({
-  format: z.literal("logsesh.debug.v1"),
+  format: z.literal(DEBUG_ENVELOPE_FORMAT),
   generatedAt: z.string(),
   session: sessionSchema,
   warnings: z.array(publicWarningSchema).optional(),
 });
 
 export const jsonExportEnvelopeSchema = z.object({
-  format: z.literal("logsesh.export.v1"),
+  format: z.literal(JSON_EXPORT_ENVELOPE_FORMAT),
   generatedAt: z.string(),
   granularity: z.enum(["session", "turn"]),
   records: z.array(z.unknown()),
@@ -270,7 +281,7 @@ export const jsonExportEnvelopeSchema = z.object({
 });
 
 export const jsonlRecordSchema = z.object({
-  format: z.literal("logsesh.jsonl.v1"),
+  format: z.literal(JSONL_RECORD_FORMAT),
   generatedAt: z.string(),
   record: z.unknown(),
   warnings: z.array(publicWarningSchema).optional(),
@@ -287,7 +298,7 @@ const adapterCapabilitiesSchema = z.object({
 });
 
 export const doctorEnvelopeSchema = z.object({
-  format: z.literal("logsesh.doctor.v1"),
+  format: z.literal(DOCTOR_ENVELOPE_FORMAT),
   generatedAt: z.string(),
   tools: z.array(
     z.object({

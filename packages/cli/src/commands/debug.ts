@@ -1,5 +1,11 @@
 import type { ToolName } from "@logsesh/core";
-import { debugEnvelopeSchema, generatedAt, parseFile, resolveDebugTool } from "@logsesh/core";
+import {
+  DEBUG_ENVELOPE_FORMAT,
+  debugEnvelopeSchema,
+  generatedAt,
+  parseFile,
+  resolveDebugTool,
+} from "@logsesh/core";
 
 export interface DebugOptions {
   file: string;
@@ -34,7 +40,7 @@ export async function runDebug(opts: DebugOptions): Promise<number> {
 
   if (opts.json) {
     const envelope = {
-      format: "logsesh.debug.v1" as const,
+      format: DEBUG_ENVELOPE_FORMAT,
       generatedAt: generatedAt(),
       session,
       warnings: [],

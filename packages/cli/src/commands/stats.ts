@@ -1,5 +1,6 @@
 import type { Warning } from "@logsesh/core";
 import {
+  STATS_ENVELOPE_FORMAT,
   StatsAggregator,
   applyEstimate,
   generatedAt,
@@ -45,7 +46,7 @@ export async function runStats(opts: SharedCommandOptions): Promise<number> {
 
   if (opts.json) {
     const envelope = {
-      format: "logsesh.stats.v1" as const,
+      format: STATS_ENVELOPE_FORMAT,
       generatedAt: generatedAt(),
       stats,
       warnings: toPublicWarnings(warnings),
