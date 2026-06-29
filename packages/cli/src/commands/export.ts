@@ -24,8 +24,7 @@ import {
 import type { PipelineOptions, SanitizeOptions } from "@logsesh/core";
 import { resolvePipelineOptions } from "../util/pipeline-options.js";
 
-const EXPORT_FORMATS = ["json", "jsonl", "markdown", "csv"] as const;
-type ExportFormat = (typeof EXPORT_FORMATS)[number];
+import { EXPORT_FILE_MODE, EXPORT_FORMATS, type ExportFormat } from "../constants.js";
 
 export interface ExportOptions {
   format: string;
@@ -257,7 +256,7 @@ function openExportStream(outPath: string, force?: boolean): Promise<WriteStream
     const ws = createWriteStream(outPath, {
       flags: force ? "w" : "wx",
       encoding: "utf8",
-      mode: 0o600,
+      mode: EXPORT_FILE_MODE,
     });
     ws.once("open", () => resolve(ws));
     ws.once("error", (err) => {

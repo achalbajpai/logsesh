@@ -1,17 +1,19 @@
+import { homedir } from "node:os";
+import { join } from "node:path";
+import { DEFAULT_LOG_ROOT_SEGMENTS, TOOL_NAMES, VALID_TOOLS } from "../constants.js";
+import { detectRootAccess } from "../fs-walk.js";
 import type { Adapter, DiscoverOptions, ToolName, Warning } from "../types.js";
 import { claudeCodeAdapter } from "./claude-code.js";
 import { codexAdapter } from "./codex.js";
 import { geminiAdapter } from "./gemini.js";
-import { detectRootAccess } from "../fs-walk.js";
-import { homedir } from "node:os";
-import { join } from "node:path";
 
 const ALL_ADAPTERS: Adapter[] = [claudeCodeAdapter, codexAdapter, geminiAdapter];
 
 const ROOTS: Record<ToolName, (opts: DiscoverOptions) => string> = {
-  "claude-code": (opts) => opts.roots?.["claude-code"] ?? join(homedir(), ".claude", "projects"),
-  codex: (opts) => opts.roots?.codex ?? join(homedir(), ".codex", "sessions"),
-  gemini: (opts) => opts.roots?.gemini ?? join(homedir(), ".gemini", "tmp"),
+  "claude-code": (opts) =>
+    opts.roots?.["claude-code"] ?? join(homedir(), ...DEFAULT_LOG_ROOT_SEGMENTS["claude-code"]),
+  codex: (opts) => opts.roots?.codex ?? join(homedir(), ...DEFAULT_LOG_ROOT_SEGMENTS.codex),
+  gemini: (opts) => opts.roots?.gemini ?? join(homedir(), ...DEFAULT_LOG_ROOT_SEGMENTS.gemini),
 };
 
 export function getAdapterRoot(tool: ToolName, opts: DiscoverOptions = {}): string {
@@ -43,8 +45,6 @@ export async function getEnabledAdapters(
 
 export { claudeCodeAdapter, codexAdapter, geminiAdapter };
 
-const VALID_TOOLS = new Set<ToolName>(["claude-code", "codex", "gemini"]);
-
 export interface ParseRootsResult {
   roots: Partial<Record<ToolName, string>>;
   errors: string[];
@@ -67,7 +67,7 @@ export function parseRootsOverride(specs: string[]): ParseRootsResult {
       continue;
     }
     if (!VALID_TOOLS.has(tool as ToolName)) {
-      errors.push(`Invalid --roots tool "${tool}". Expected: claude-code, codex, gemini`);
+      errors.push(`Invalid --roots tool "${tool}". Expected: ${TOOL_NAMES.join(", ")}`);
       continue;
     }
     const key = tool as ToolName;

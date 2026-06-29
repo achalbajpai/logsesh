@@ -1,4 +1,25 @@
-export type ToolName = "claude-code" | "codex" | "gemini";
+import type {
+  DebugEnvelopeFormat,
+  JsonExportEnvelopeFormat,
+  JsonlRecordFormat,
+  ListEnvelopeFormat,
+  SearchEnvelopeFormat,
+  SessionSchemaVersion,
+  StatsEnvelopeFormat,
+  ToolName,
+} from "./constants.js";
+
+export type {
+  ToolName,
+  SessionSchemaVersion,
+  ListEnvelopeFormat,
+  SearchEnvelopeFormat,
+  StatsEnvelopeFormat,
+  DebugEnvelopeFormat,
+  JsonExportEnvelopeFormat,
+  JsonlRecordFormat,
+  DoctorEnvelopeFormat,
+} from "./constants.js";
 
 export type ContentBlock =
   | { kind: "text"; text: string }
@@ -74,7 +95,7 @@ export interface Source {
 }
 
 export interface Session {
-  schemaVersion: "logsesh.session.v1";
+  schemaVersion: SessionSchemaVersion;
   id: string;
   source: Source;
   tool: ToolName;
@@ -90,7 +111,7 @@ export interface Session {
 }
 
 export interface JsonExportEnvelope<T, W = PublicWarning> {
-  format: "logsesh.export.v1";
+  format: JsonExportEnvelopeFormat;
   generatedAt: string;
   granularity: "session" | "turn";
   records: T[];
@@ -98,7 +119,7 @@ export interface JsonExportEnvelope<T, W = PublicWarning> {
 }
 
 export interface JsonlRecord<T, W = PublicWarning> {
-  format: "logsesh.jsonl.v1";
+  format: JsonlRecordFormat;
   generatedAt: string;
   record: T;
   warnings?: W[];
@@ -191,28 +212,28 @@ export interface StatsReport {
 }
 
 export interface ListEnvelope {
-  format: "logsesh.list.v1";
+  format: ListEnvelopeFormat;
   generatedAt: string;
   sessions: SessionSummary[];
   warnings?: PublicWarning[];
 }
 
 export interface SearchEnvelope {
-  format: "logsesh.search.v1";
+  format: SearchEnvelopeFormat;
   generatedAt: string;
   matches: SearchMatch[];
   warnings?: PublicWarning[];
 }
 
 export interface StatsEnvelope {
-  format: "logsesh.stats.v1";
+  format: StatsEnvelopeFormat;
   generatedAt: string;
   stats: StatsReport;
   warnings?: PublicWarning[];
 }
 
 export interface DebugEnvelope {
-  format: "logsesh.debug.v1";
+  format: DebugEnvelopeFormat;
   generatedAt: string;
   session: Session;
   warnings?: PublicWarning[];

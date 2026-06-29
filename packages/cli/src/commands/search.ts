@@ -1,5 +1,6 @@
 import type { Warning } from "@logsesh/core";
 import {
+  SEARCH_ENVELOPE_FORMAT,
   generatedAt,
   mergeWarnings,
   parseRedactPatterns,
@@ -64,7 +65,7 @@ export async function runSearch(opts: SearchOptions): Promise<number> {
 
   if (opts.json) {
     const envelope = {
-      format: "logsesh.search.v1" as const,
+      format: SEARCH_ENVELOPE_FORMAT,
       generatedAt: generatedAt(),
       matches,
       warnings: toPublicWarnings(warnings),

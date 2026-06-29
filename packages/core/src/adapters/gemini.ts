@@ -14,7 +14,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
 
-const ADAPTER_VERSION = "0.1.1-experimental";
+import { ADAPTER_VERSIONS, DEFAULT_LOG_ROOT_SEGMENTS } from "../constants.js";
 
 const geminiLineSchema = z.object({
   role: z.string().optional(),
@@ -56,12 +56,12 @@ const geminiLineSchema = z.object({
 });
 
 function geminiRoot(opts: DiscoverOptions): string {
-  return opts.roots?.gemini ?? join(homedir(), ".gemini", "tmp");
+  return opts.roots?.gemini ?? join(homedir(), ...DEFAULT_LOG_ROOT_SEGMENTS.gemini);
 }
 
 export const geminiAdapter: Adapter = {
   tool: "gemini" as ToolName,
-  adapterVersion: ADAPTER_VERSION,
+  adapterVersion: ADAPTER_VERSIONS.gemini,
   capabilities: {
     discovery: "experimental",
     transcript: "partial",
@@ -133,7 +133,7 @@ export const geminiAdapter: Adapter = {
 
     const builder = new SessionBuilder({
       tool: "gemini",
-      adapterVersion: ADAPTER_VERSION,
+      adapterVersion: ADAPTER_VERSIONS.gemini,
       sourcePath: file.path,
       sessionId,
       logFormatVersion: "experimental",

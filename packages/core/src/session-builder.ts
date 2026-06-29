@@ -10,6 +10,7 @@ import type {
   Usage,
   Warning,
 } from "./types.js";
+import { LOG_FORMAT_VERSION_UNKNOWN, SESSION_SCHEMA_VERSION } from "./constants.js";
 
 interface FragmentEntry {
   sourceLine: number;
@@ -246,12 +247,12 @@ export class SessionBuilder {
     const sortedTs = [...this.timestamps].sort();
 
     this.finalizedSession = {
-      schemaVersion: "logsesh.session.v1",
+      schemaVersion: SESSION_SCHEMA_VERSION,
       id: this.opts.sessionId,
       source: {
         tool: this.opts.tool,
         adapterVersion: this.opts.adapterVersion,
-        logFormatVersion: this.opts.logFormatVersion ?? "unknown",
+        logFormatVersion: this.opts.logFormatVersion ?? LOG_FORMAT_VERSION_UNKNOWN,
         sourcePath: this.opts.sourcePath,
       },
       tool: this.opts.tool,

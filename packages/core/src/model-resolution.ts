@@ -1,4 +1,4 @@
-const PLACEHOLDER_MODELS = new Set(["<synthetic>", "synthetic", "unknown"]);
+import { PLACEHOLDER_MODELS, PROVIDER_NAMES } from "./constants.js";
 
 export function isPlaceholderModel(model: string | undefined): boolean {
   if (!model?.trim()) return true;
@@ -6,8 +6,6 @@ export function isPlaceholderModel(model: string | undefined): boolean {
   if (PLACEHOLDER_MODELS.has(normalized)) return true;
   return normalized.startsWith("<") && normalized.endsWith(">");
 }
-
-const PROVIDER_NAMES = new Set(["anthropic", "azure", "google", "openai", "openrouter"]);
 
 export function looksLikeModelId(value: string): boolean {
   const normalized = value.toLowerCase();

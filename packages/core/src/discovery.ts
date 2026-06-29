@@ -1,4 +1,5 @@
 import type { Adapter, DiscoverOptions, Session, SessionFile, ToolName, Warning } from "./types.js";
+import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MINUTE } from "./constants.js";
 import { getEnabledAdapters } from "./adapters/index.js";
 import { type ParsedQuery, hasTextQuery, matchesQuery, parseQuery } from "./query.js";
 
@@ -53,7 +54,12 @@ export function parseDateFilter(value: string | undefined): Date | undefined {
   if (relative) {
     const amount = Number(relative[1]);
     const unit = relative[2];
-    const ms = unit === "d" ? amount * 86400000 : unit === "h" ? amount * 3600000 : amount * 60000;
+    const ms =
+      unit === "d"
+        ? amount * MS_PER_DAY
+        : unit === "h"
+          ? amount * MS_PER_HOUR
+          : amount * MS_PER_MINUTE;
     return new Date(Date.now() - ms);
   }
   const parsed = new Date(value);

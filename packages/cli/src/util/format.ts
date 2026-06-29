@@ -1,10 +1,9 @@
 import type { StatsReport, ToolName, Warning } from "@logsesh/core";
-import { anonymizePath, anonymizePathsInText, summarizeWarnings } from "@logsesh/core";
+import { TOOL_NAMES, anonymizePath, anonymizePathsInText, summarizeWarnings } from "@logsesh/core";
+import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MINUTE } from "../constants.js";
 import { humanizeTokens } from "../ui/num.js";
 
 export { humanizeTokens } from "../ui/num.js";
-
-const TOOL_NAMES: ToolName[] = ["claude-code", "codex", "gemini"];
 
 export function formatLoggedCost(stats: StatsReport): string {
   if (stats.loggedCostUsd === null) return "unknown (local logs have no USD)";
@@ -91,7 +90,12 @@ export function parseSinceUntil(
   if (relative) {
     const amount = Number(relative[1]);
     const unit = relative[2];
-    const ms = unit === "d" ? amount * 86400000 : unit === "h" ? amount * 3600000 : amount * 60000;
+    const ms =
+      unit === "d"
+        ? amount * MS_PER_DAY
+        : unit === "h"
+          ? amount * MS_PER_HOUR
+          : amount * MS_PER_MINUTE;
     return { date: new Date(Date.now() - ms) };
   }
   const d = new Date(value);

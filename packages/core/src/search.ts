@@ -1,4 +1,9 @@
 import type { SearchMatch, Session, Turn } from "./types.js";
+import {
+  DEFAULT_MAX_SNIPPETS,
+  SESSION_PREVIEW_MAX_CHARS,
+  SNIPPET_CONTEXT_RADIUS,
+} from "./constants.js";
 import { matchesSessionFilters } from "./discovery.js";
 import { hasTextQuery, matchesQuery, parseQuery, textOnlyQuery } from "./query.js";
 import { redactText } from "./redact.js";
@@ -26,7 +31,7 @@ function turnSearchText(turn: Turn, opts: SearchOptions): string {
   return parts.join("\n");
 }
 
-function snippetAround(text: string, needle: string, radius = 60): string {
+function snippetAround(text: string, needle: string, radius = SNIPPET_CONTEXT_RADIUS): string {
   const idx = text.toLowerCase().indexOf(needle.toLowerCase());
   if (idx < 0) return text.slice(0, radius * 2);
   const start = Math.max(0, idx - radius);
@@ -39,7 +44,10 @@ function sessionPreviewSnippet(session: Session, opts: SearchOptions): string {
     if (turn.role !== "user") continue;
     const text = turnSearchText(turn, { ...opts, includeReasoning: false });
     if (!text.trim()) continue;
-    let snippet = text.length > 120 ? `${text.slice(0, 120)}...` : text;
+    let snippet =
+      text.length > SESSION_PREVIEW_MAX_CHARS
+        ? `${text.slice(0, SESSION_PREVIEW_MAX_CHARS)}...`
+        : text;
     if (opts.redact !== false) snippet = redactText(snippet, opts.redactPatterns);
     return snippet;
   }
@@ -66,7 +74,7 @@ export function searchSession(
   }
 
   const textQuery = textOnlyQuery(query);
-  const maxSnippets = opts.maxSnippets ?? 3;
+  const maxSnippets = opts.maxSnippets ?? DEFAULT_MAX_SNIPPETS;
   const snippets: string[] = [];
   let totalHits = 0;
 

@@ -1,4 +1,5 @@
 import type { WriteStream } from "node:tty";
+import { LOGSESH_PLAIN_ENV, LOGSESH_PLAIN_VALUE } from "../constants.js";
 
 export type RenderMode = {
   mode: "rich" | "plain";
@@ -27,7 +28,7 @@ export function validateRenderOptions(opts: RenderOptions): string | null {
 }
 
 function resolveOutputMode(opts: RenderOptions, stream: WriteStream): "rich" | "plain" {
-  if (opts.plain || process.env.LOGSESH_PLAIN === "1") {
+  if (opts.plain || process.env[LOGSESH_PLAIN_ENV] === LOGSESH_PLAIN_VALUE) {
     return "plain";
   }
   if (!stream.isTTY) {

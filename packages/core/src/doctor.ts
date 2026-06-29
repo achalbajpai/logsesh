@@ -1,3 +1,9 @@
+import {
+  DOCTOR_CANDIDATE_SCAN_LIMIT,
+  DOCTOR_ENVELOPE_FORMAT,
+  type DoctorEnvelopeFormat,
+  EXPORT_DEFAULTS,
+} from "./constants.js";
 import { getAdapterRoot, getAllAdapters } from "./adapters/index.js";
 import { detectRootAccess } from "./fs-walk.js";
 import {
@@ -10,8 +16,6 @@ import {
 import { generatedAt } from "./schemas.js";
 import type { AdapterCapabilities, DiscoverOptions, ToolName, Warning } from "./types.js";
 import { toPublicWarnings } from "./pipeline.js";
-
-const DOCTOR_CANDIDATE_SCAN_LIMIT = 1000;
 
 export interface DoctorToolReport {
   tool: ToolName;
@@ -26,7 +30,7 @@ export interface DoctorToolReport {
 }
 
 export interface DoctorReport {
-  format: "logsesh.doctor.v1";
+  format: DoctorEnvelopeFormat;
   generatedAt: string;
   tools: DoctorToolReport[];
   pricing: {
@@ -40,11 +44,7 @@ export interface DoctorReport {
     }>;
     modelCount: number;
   };
-  exportDefaults: {
-    transcriptRedactDefault: true;
-    summaryCsvRedactRequired: false;
-    anonymizePathsDefault: true;
-  };
+  exportDefaults: typeof EXPORT_DEFAULTS;
   warnings: ReturnType<typeof toPublicWarnings>;
 }
 
@@ -94,7 +94,7 @@ export async function runDoctor(opts: DiscoverOptions = {}): Promise<DoctorRepor
   }
 
   return {
-    format: "logsesh.doctor.v1",
+    format: DOCTOR_ENVELOPE_FORMAT,
     generatedAt: generatedAt(),
     tools,
     pricing: {
@@ -104,11 +104,7 @@ export async function runDoctor(opts: DiscoverOptions = {}): Promise<DoctorRepor
       sources: PRICING_SOURCES,
       modelCount: PRICING_MODEL_COUNT,
     },
-    exportDefaults: {
-      transcriptRedactDefault: true,
-      summaryCsvRedactRequired: false,
-      anonymizePathsDefault: true,
-    },
+    exportDefaults: EXPORT_DEFAULTS,
     warnings: toPublicWarnings(warnings),
   };
 }

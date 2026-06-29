@@ -2,6 +2,7 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { createInterface } from "node:readline";
 import type { z } from "zod";
+import { DEFAULT_MAX_FILE_BYTES } from "./constants.js";
 
 export async function readJsonlLines(
   filePath: string,
@@ -9,7 +10,7 @@ export async function readJsonlLines(
   opts?: { maxFileBytes?: number },
 ): Promise<{ skipped: boolean; size: number }> {
   const fileStat = await stat(filePath);
-  const maxBytes = opts?.maxFileBytes ?? 200 * 1024 * 1024;
+  const maxBytes = opts?.maxFileBytes ?? DEFAULT_MAX_FILE_BYTES;
   if (fileStat.size > maxBytes) {
     return { skipped: true, size: fileStat.size };
   }

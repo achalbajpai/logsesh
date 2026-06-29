@@ -1,10 +1,12 @@
 import { closeSync, openSync, readSync } from "node:fs";
 import { z } from "zod";
+import {
+  CLAUDE_LOG_TYPES,
+  CODEX_LOG_TYPES,
+  DEFAULT_INFER_TOOL,
+  SNIFF_HEAD_BYTES,
+} from "./constants.js";
 import type { ToolName } from "./types.js";
-
-const CODEX_TYPES = new Set(["session_meta", "response_item", "event_msg", "token_count"]);
-const CLAUDE_TYPES = new Set(["user", "assistant", "system", "summary"]);
-const SNIFF_HEAD_BYTES = 8192;
 
 const sniffObjectSchema = z.record(z.string(), z.unknown());
 
@@ -38,10 +40,10 @@ export function sniffToolFromLogLine(line: string): ToolName | undefined {
     if (!result.success) return undefined;
     const obj = result.data;
     if ("payload" in obj && typeof obj.type === "string") {
-      if (CODEX_TYPES.has(obj.type)) return "codex";
+      if (CODEX_LOG_TYPES.has(obj.type)) return "codex";
     }
     if ("message" in obj && typeof obj.type === "string") {
-      if (CLAUDE_TYPES.has(obj.type)) return "claude-code";
+      if (CLAUDE_LOG_TYPES.has(obj.type)) return "claude-code";
     }
     if ("parts" in obj && typeof obj.role === "string") {
       return "gemini";
@@ -92,5 +94,5 @@ export function resolveDebugTool(
   if (inferred) return { tool: inferred, warnings };
 
   warnings.push("could not infer tool from path or file format; defaulting to claude-code");
-  return { tool: "claude-code", warnings };
+  return { tool: DEFAULT_INFER_TOOL, warnings };
 }

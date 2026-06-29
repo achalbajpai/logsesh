@@ -1,16 +1,10 @@
 import type { Session, StatsReport, TokenBreakdown, Usage } from "./types.js";
 import { anonymizePath } from "./util.js";
-
-const TOKEN_CATEGORY_FIELDS = {
-  input: "inputTokens",
-  output: "outputTokens",
-  cacheRead: "cacheReadTokens",
-  cacheWrite: "cacheWriteTokens",
-  reasoning: "reasoningTokens",
-} as const satisfies Record<
-  keyof Omit<TokenBreakdown, "observed" | "observedSessionCount">,
-  keyof Usage
->;
+import {
+  MOST_ACTIVE_DAYS_LIMIT,
+  TOKEN_CATEGORY_FIELDS,
+  UNKNOWN_PROJECT_LABEL,
+} from "./constants.js";
 
 function sessionTokens(session: Session): number {
   return (
@@ -99,7 +93,9 @@ export class StatsAggregator {
     this.byTool[tool].turns += session.turns.length;
     this.byTool[tool].tokens += tokens;
 
-    const project = session.projectPath ? anonymizePath(session.projectPath) : "unknown";
+    const project = session.projectPath
+      ? anonymizePath(session.projectPath)
+      : UNKNOWN_PROJECT_LABEL;
     this.byProject[project] ??= { sessions: 0, turns: 0, tokens: 0 };
     this.byProject[project].sessions++;
     this.byProject[project].turns += session.turns.length;
@@ -119,7 +115,7 @@ export class StatsAggregator {
     const mostActiveDays = [...this.dayCounts.entries()]
       .map(([date, v]) => ({ date, sessions: v.sessions, turns: v.turns }))
       .sort((a, b) => b.sessions - a.sessions || b.turns - a.turns)
-      .slice(0, 10);
+      .slice(0, MOST_ACTIVE_DAYS_LIMIT);
 
     const dailyBurn = [...this.dayCounts.entries()]
       .map(([date, v]) => ({

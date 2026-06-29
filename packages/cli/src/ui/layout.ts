@@ -1,11 +1,9 @@
+import { TERM_DEFAULT_WIDTH, TERM_MAX_WIDTH } from "../constants.js";
 import type { WriteStream } from "node:tty";
 
-const MAX_WIDTH = 120;
-const DEFAULT_WIDTH = 80;
-
 export function termWidth(stream: WriteStream = process.stdout): number {
-  const columns = stream.columns ?? DEFAULT_WIDTH;
-  return Math.min(MAX_WIDTH, columns);
+  const columns = stream.columns ?? TERM_DEFAULT_WIDTH;
+  return Math.min(TERM_MAX_WIDTH, columns);
 }
 
 export function heading(title: string): string {

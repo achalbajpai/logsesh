@@ -6,7 +6,7 @@ import { padLeft, padRight, rule, termWidth, truncateMiddle } from "./layout.js"
 import type { RenderMode } from "./mode.js";
 import { createTheme } from "./theme.js";
 
-const COL_GAP = 2;
+import { LIST_COL_GAP } from "../constants.js";
 
 function formatDate(iso: string | undefined): string {
   if (!iso) return "-";
@@ -64,7 +64,7 @@ function columnWidths(rows: ListRow[], width: number) {
   const tokensW = Math.max(6, "TOKENS".length, ...rows.map((row) => row.tokens.length));
   const costW = Math.max(4, "COST".length, ...rows.map((row) => row.costPlain.length));
 
-  const fixed = dateW + toolW + turnsW + tokensW + costW + COL_GAP * 5;
+  const fixed = dateW + toolW + turnsW + tokensW + costW + LIST_COL_GAP * 5;
   const projectW = Math.max(1, width - fixed);
 
   return { dateW, toolW, projectW, turnsW, tokensW, costW };
@@ -115,7 +115,7 @@ function renderRichTable(sessions: SessionSummary[], mode: RenderMode, width: nu
       theme.label(padLeft("TURNS", turnsW)),
       theme.label(padLeft("TOKENS", tokensW)),
       theme.label(padLeft("COST", costW)),
-    ].join(" ".repeat(COL_GAP)),
+    ].join(" ".repeat(LIST_COL_GAP)),
   );
   lines.push(theme.dim(rule(width)));
 
@@ -130,7 +130,7 @@ function renderRichTable(sessions: SessionSummary[], mode: RenderMode, width: nu
         padLeft(row.turns, turnsW),
         padLeft(row.tokens, tokensW),
         padLeft(formatCostRich(session.costUsd, session.estimate, theme), costW),
-      ].join(" ".repeat(COL_GAP)),
+      ].join(" ".repeat(LIST_COL_GAP)),
     );
   }
 

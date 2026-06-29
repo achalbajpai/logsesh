@@ -9,11 +9,13 @@ import type { RenderMode } from "./mode.js";
 import { humanizeTokens } from "./num.js";
 import { createTheme } from "./theme.js";
 
-const PROJECT_LIMIT = 10;
-const DAILY_BURN_WIDE = 30;
-const DAILY_BURN_NARROW = 14;
-const NARROW_WIDTH = 70;
-const PROJECT_LABEL_MIN = 12;
+import {
+  STATS_DAILY_BURN_NARROW,
+  STATS_DAILY_BURN_WIDE,
+  STATS_NARROW_WIDTH,
+  STATS_PROJECT_LABEL_MIN,
+  STATS_PROJECT_LIMIT,
+} from "../constants.js";
 
 const SPLIT_LABELS: Array<{
   key: keyof Omit<TokenBreakdown, "observed" | "observedSessionCount">;
@@ -119,7 +121,7 @@ function renderTokenSplit(
 }
 
 function dailyBurnLimit(width: number): number {
-  return width <= NARROW_WIDTH ? DAILY_BURN_NARROW : DAILY_BURN_WIDE;
+  return width <= STATS_NARROW_WIDTH ? STATS_DAILY_BURN_NARROW : STATS_DAILY_BURN_WIDE;
 }
 
 function renderDailyBurn(
@@ -248,12 +250,12 @@ function renderRichStats(
   }
 
   const projectEntries = Object.entries(stats.byProject).sort((a, b) => b[1].tokens - a[1].tokens);
-  const visibleProjects = projectEntries.slice(0, PROJECT_LIMIT).map(([project, values]) => ({
-    label: truncateMiddle(project, Math.max(PROJECT_LABEL_MIN, 16)),
+  const visibleProjects = projectEntries.slice(0, STATS_PROJECT_LIMIT).map(([project, values]) => ({
+    label: truncateMiddle(project, Math.max(STATS_PROJECT_LABEL_MIN, 16)),
     tokens: values.tokens,
   }));
   const projectLabelWidth = Math.max(
-    PROJECT_LABEL_MIN,
+    STATS_PROJECT_LABEL_MIN,
     ...visibleProjects.map((entry) => entry.label.length),
   );
   const projectLines = renderRankedBars(
