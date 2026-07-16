@@ -1,13 +1,13 @@
 import type { StatsReport, TokenBreakdown, ToolName } from "@logsesh/core";
-import pc from "picocolors";
 import type { WriteStream } from "node:tty";
 import { barRow, hbar, sparkline, stackedBar, truncateAnsi } from "./charts.js";
+import { emptySessionsHint, emptySessionsMessage, renderEmpty } from "./empty.js";
 import { describeActiveFilters } from "./filters.js";
 import { formatEstimatedCost, formatLoggedCost, formatUnpricedTokens } from "../util/format.js";
-import { kv, rule, termWidth, truncateMiddle } from "./layout.js";
+import { kvThemed, sectionChrome, termWidth, truncateMiddle } from "./layout.js";
 import type { RenderMode } from "./mode.js";
 import { humanizeTokens } from "./num.js";
-import { createTheme } from "./theme.js";
+import { type Theme, createTheme } from "./theme.js";
 
 import {
   STATS_DAILY_BURN_NARROW,
@@ -17,20 +17,19 @@ import {
   STATS_PROJECT_LIMIT,
 } from "../constants.js";
 
-const SPLIT_LABELS: Array<{
+const SPLIT_KEYS: Array<{
   key: keyof Omit<TokenBreakdown, "observed" | "observedSessionCount">;
   label: string;
-  paint: (text: string) => string;
 }> = [
-  { key: "input", label: "input", paint: pc.cyan },
-  { key: "output", label: "output", paint: pc.yellow },
-  { key: "cacheRead", label: "cache read", paint: pc.blue },
-  { key: "cacheWrite", label: "cache write", paint: pc.magenta },
-  { key: "reasoning", label: "reasoning", paint: pc.green },
+  { key: "input", label: "input" },
+  { key: "output", label: "output" },
+  { key: "cacheRead", label: "cache read" },
+  { key: "cacheWrite", label: "cache write" },
+  { key: "reasoning", label: "reasoning" },
 ];
 
 function observedCategories(breakdown: TokenBreakdown) {
-  return SPLIT_LABELS.filter(({ key }) => breakdown.observed[key]);
+  return SPLIT_KEYS.filter(({ key }) => breakdown.observed[key]);
 }
 
 function hasObservedSplit(breakdown: TokenBreakdown): boolean {
@@ -56,7 +55,10 @@ function splitCoverageLabel(stats: StatsReport): string | null {
 
 function renderPlainStats(stats: StatsReport, filters: string, usedEstimates: boolean): string[] {
   if (stats.sessionCount === 0) {
-    return [`no sessions matched (${filters})`];
+    return renderEmpty({
+      message: emptySessionsMessage(filters),
+      hint: emptySessionsHint(filters),
+    });
   }
 
   const lines = [
@@ -76,34 +78,28 @@ function renderPlainStats(stats: StatsReport, filters: string, usedEstimates: bo
   return lines;
 }
 
-function renderSummaryStrip(
-  stats: StatsReport,
-  usedEstimates: boolean,
-  theme: ReturnType<typeof createTheme>,
-): string[] {
-  return kv([
-    ["Sessions", String(stats.sessionCount)],
-    ["Turns", String(stats.turnCount)],
-    ["Tokens", humanizeTokens(stats.totalTokens)],
-    ["Logged cost", formatLoggedCost(stats)],
-    ["Estimated cost", formatEstimatedCost(stats, usedEstimates)],
-  ]).map((line) => theme.label(line));
+function renderSummaryStrip(stats: StatsReport, usedEstimates: boolean, theme: Theme): string[] {
+  return kvThemed(
+    [
+      ["Sessions", String(stats.sessionCount)],
+      ["Turns", String(stats.turnCount)],
+      ["Tokens", humanizeTokens(stats.totalTokens)],
+      ["Logged cost", formatLoggedCost(stats)],
+      ["Estimated cost", formatEstimatedCost(stats, usedEstimates)],
+    ],
+    theme,
+  );
 }
 
-function renderTokenSplit(
-  stats: StatsReport,
-  width: number,
-  mode: RenderMode,
-  theme: ReturnType<typeof createTheme>,
-): string[] {
+function renderTokenSplit(stats: StatsReport, width: number, theme: Theme): string[] {
   const breakdown = stats.tokenBreakdown;
   if (!hasObservedSplit(breakdown)) return [];
 
   const lines: string[] = [theme.label("reported token split")];
   const categories = observedCategories(breakdown);
-  const segments = categories.map(({ key, paint }) => ({
+  const segments = categories.map(({ key }) => ({
     value: breakdown[key],
-    paint: mode.color ? paint : (text: string) => text,
+    paint: theme.split[key],
   }));
 
   const bar = stackedBar(segments, width);
@@ -124,11 +120,7 @@ function dailyBurnLimit(width: number): number {
   return width <= STATS_NARROW_WIDTH ? STATS_DAILY_BURN_NARROW : STATS_DAILY_BURN_WIDE;
 }
 
-function renderDailyBurn(
-  stats: StatsReport,
-  width: number,
-  theme: ReturnType<typeof createTheme>,
-): string[] {
+function renderDailyBurn(stats: StatsReport, width: number, theme: Theme): string[] {
   const days = stats.dailyBurn.slice(-dailyBurnLimit(width));
   if (days.length === 0) return [];
 
@@ -158,7 +150,7 @@ function renderRankedBars(
   title: string,
   entries: Array<{ label: string; tokens: number; paint?: (text: string) => string }>,
   width: number,
-  theme: ReturnType<typeof createTheme>,
+  theme: Theme,
   labelWidth: number,
 ): string[] {
   if (entries.length === 0) return [];
@@ -180,11 +172,7 @@ function renderRankedBars(
   return lines;
 }
 
-function renderFootnotes(
-  stats: StatsReport,
-  usedEstimates: boolean,
-  theme: ReturnType<typeof createTheme>,
-): string[] {
+function renderFootnotes(stats: StatsReport, usedEstimates: boolean, theme: Theme): string[] {
   const lines: string[] = [];
 
   if (stats.unpricedSessionCount > 0) {
@@ -211,19 +199,25 @@ function renderRichStats(
   mode: RenderMode,
   opts: { filters: string; usedEstimates: boolean; stream?: WriteStream },
 ): string[] {
-  if (stats.sessionCount === 0) {
-    return [`no sessions matched (${opts.filters})`];
-  }
-
   const theme = createTheme(mode);
   const width = termWidth(opts.stream ?? process.stdout);
+
+  if (stats.sessionCount === 0) {
+    return [
+      ...sectionChrome("stats", width, mode, theme),
+      ...renderEmpty({
+        message: emptySessionsMessage(opts.filters),
+        hint: emptySessionsHint(opts.filters),
+      }),
+    ];
+  }
+
   const lines: string[] = [
-    theme.label("stats"),
-    theme.dim(rule(width)),
+    ...sectionChrome("stats", width, mode, theme),
     ...renderSummaryStrip(stats, opts.usedEstimates, theme),
   ];
 
-  const split = renderTokenSplit(stats, width, mode, theme);
+  const split = renderTokenSplit(stats, width, theme);
   if (split.length > 0) {
     lines.push("");
     lines.push(...split);
@@ -251,7 +245,7 @@ function renderRichStats(
 
   const projectEntries = Object.entries(stats.byProject).sort((a, b) => b[1].tokens - a[1].tokens);
   const visibleProjects = projectEntries.slice(0, STATS_PROJECT_LIMIT).map(([project, values]) => ({
-    label: truncateMiddle(project, Math.max(STATS_PROJECT_LABEL_MIN, 16)),
+    label: truncateMiddle(project, Math.max(STATS_PROJECT_LABEL_MIN, 16), mode.unicode),
     tokens: values.tokens,
   }));
   const projectLabelWidth = Math.max(

@@ -4,7 +4,23 @@ All notable changes to this project are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.2.0] - Unreleased
+## [0.2.3] - Unreleased
+
+### Added
+
+- Shared empty-state copy for `list`, `stats`, and `search` (search no longer stays silent on zero matches).
+- Unified rich command chrome (`section` title + rule) across `doctor`, `list`, `stats`, and `search`.
+- `doctor` overall status (`healthy` / `partial` / `broken`) and a single next-action line.
+- stderr scan progress (`scanning… N files`) on TTY cold scans for `list`, `stats`, and `search` (suppressed for `--json`, `--plain`, and pipes).
+
+### Changed
+
+- Stats summary strip uses dim labels and bright values.
+- Token-split colors go through the shared theme.
+- Truncation uses Unicode `…` in rich mode and ASCII `...` in plain mode.
+- `doctor` leads with adapter health; pricing is secondary. Warnings print once in the doctor report (not also on stderr).
+
+## [0.2.2] - 2026-06-28
 
 ### Added
 
@@ -25,7 +41,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Migration
 
-**v0.2.0 changes default human output.** If you parse CLI output in a script, use one of:
+**v0.2.x changes default human output.** If you parse CLI output in a script, use one of:
 
 - `logsesh <command> --json` for stable machine-readable envelopes, or
 - `logsesh <command> --plain` for stable human text close to pre-0.2.0 output.

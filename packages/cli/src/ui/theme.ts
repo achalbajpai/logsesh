@@ -25,5 +25,12 @@ export function createTheme(mode: RenderMode) {
     err: paint(mode, pc.red),
     muted: paint(mode, pc.dim),
     tool: (tool: ToolName, text: string) => (mode.color ? TOOL_COLOR[tool](text) : text),
+    split: {
+      input: paint(mode, pc.cyan),
+      output: paint(mode, pc.yellow),
+      cacheRead: paint(mode, pc.blue),
+      cacheWrite: paint(mode, pc.magenta),
+      reasoning: paint(mode, pc.green),
+    },
   };
 }

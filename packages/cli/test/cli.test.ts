@@ -53,16 +53,21 @@ describe("CLI", () => {
     expect(res.stdout).toBe("");
   });
 
-  it("search returns exit 1 when no matches in fixture roots", () => {
+  it("search returns exit 1 and prints empty state when no matches", () => {
     const res = run([
       "search",
       "zzzznotfound",
+      "--plain",
       "--roots",
       `claude-code:${join(root, "packages/core/test/fixtures/claude")}`,
       "--tool",
       "claude-code",
     ]);
     expect(res.status).toBe(1);
+    expect(res.stdout).toContain("0 matches");
+    expect(res.stdout).toContain("zzzznotfound");
+    expect(res.stdout).toContain("try: logsesh search");
+    expect(res.stderr).not.toContain("scanning");
   });
 
   it("JSON export omits sourcePath by default", () => {

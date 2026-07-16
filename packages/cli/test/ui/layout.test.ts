@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { kv, rule, termWidth, truncateMiddle } from "../../src/ui/layout.js";
+import {
+  kv,
+  kvThemed,
+  rule,
+  sectionChrome,
+  termWidth,
+  truncateMiddle,
+  truncateStart,
+} from "../../src/ui/layout.js";
+import { createTheme } from "../../src/ui/theme.js";
 
 describe("termWidth", () => {
   it("preserves real narrow terminal widths and caps wide terminals", () => {
@@ -41,5 +50,36 @@ describe("kv", () => {
 describe("rule", () => {
   it("repeats a character to the requested width", () => {
     expect(rule(5)).toBe("─────");
+  });
+});
+
+describe("truncateStart", () => {
+  it("uses ASCII ellipsis in plain and Unicode in rich", () => {
+    expect(truncateStart("abcdefghijklmnop", 10, false)).toBe("...jklmnop");
+    expect(truncateStart("abcdefghijklmnop", 10, true)).toBe("…hijklmnop");
+  });
+});
+
+describe("truncateMiddle plain", () => {
+  it("uses ASCII ellipsis when unicode is false", () => {
+    expect(truncateMiddle("abcdefghijklmnop", 10, false)).toBe("abcd...nop");
+  });
+});
+
+describe("sectionChrome", () => {
+  it("emits title only in plain and title plus rule in rich", () => {
+    const mode = { mode: "rich" as const, color: false, unicode: true };
+    const theme = createTheme(mode);
+    expect(
+      sectionChrome("stats", 5, { mode: "plain", color: false, unicode: false }, theme),
+    ).toEqual(["stats"]);
+    expect(sectionChrome("stats", 5, mode, theme)).toEqual(["stats", "─────"]);
+  });
+});
+
+describe("kvThemed", () => {
+  it("keeps label/value separation", () => {
+    const theme = createTheme({ mode: "rich", color: false, unicode: true });
+    expect(kvThemed([["Sessions", "12"]], theme)).toEqual(["Sessions: 12"]);
   });
 });

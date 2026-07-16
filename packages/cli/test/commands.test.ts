@@ -117,14 +117,16 @@ describe("command handlers", () => {
   });
 
   it("runDoctorCommand prints human report", async () => {
-    expect(await runDoctorCommand({ roots: claudeOpts.roots })).toBe(0);
+    expect(await runDoctorCommand({ roots: claudeOpts.roots, plain: true })).toBe(0);
     const out = logs.join("\n");
-    expect(out).toMatch(/^Pricing table/);
+    expect(out).toMatch(/^doctor/);
+    expect(out).toContain("status:");
+    expect(out).toContain("Adapters");
     expect(out).toContain("Pricing table");
     expect(out).toContain("sources:");
     expect(out).toContain("platform.openai.com/docs/pricing");
     expect(out).toContain("docs.anthropic.com/en/docs/about-claude/pricing");
-    expect(out).toContain("Adapters");
+    expect(out).toContain("next: logsesh stats");
   });
 
   it("runDoctorCommand rejects invalid roots", async () => {

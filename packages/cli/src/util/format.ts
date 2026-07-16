@@ -1,13 +1,14 @@
 import type { StatsReport, ToolName, Warning } from "@logsesh/core";
 import { TOOL_NAMES, anonymizePath, anonymizePathsInText, summarizeWarnings } from "@logsesh/core";
 import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MINUTE } from "../constants.js";
-import { humanizeTokens } from "../ui/num.js";
+import { truncateStart } from "../ui/layout.js";
+import { humanizeTokens, money, percent } from "../ui/num.js";
 
 export { humanizeTokens } from "../ui/num.js";
 
 export function formatLoggedCost(stats: StatsReport): string {
   if (stats.loggedCostUsd === null) return "unknown (local logs have no USD)";
-  return `$${stats.loggedCostUsd.toFixed(2)}`;
+  return money(stats.loggedCostUsd);
 }
 
 export function formatEstimatedCost(stats: StatsReport, usedEstimates: boolean): string {
@@ -15,7 +16,7 @@ export function formatEstimatedCost(stats: StatsReport, usedEstimates: boolean):
   if (stats.estimatedCostUsd === null) {
     return "unknown (no priced model for matched sessions)";
   }
-  const amount = `~$${stats.estimatedCostUsd.toFixed(2)} est`;
+  const amount = `${money(stats.estimatedCostUsd, { estimated: true })} est`;
   if (stats.unpricedSessionCount > 0) {
     const pricedSessionCount = stats.loggedSessionCount + stats.estimatedSessionCount;
     return `${amount} (${pricedSessionCount}/${stats.sessionCount} sessions priced)`;
@@ -26,14 +27,12 @@ export function formatEstimatedCost(stats: StatsReport, usedEstimates: boolean):
 export function formatUnpricedTokens(stats: StatsReport): string | null {
   if (stats.unpricedSessionCount === 0) return null;
   const pct =
-    stats.totalTokens > 0 ? ((stats.unpricedTokens / stats.totalTokens) * 100).toFixed(1) : "0.0";
-  return `${humanizeTokens(stats.unpricedTokens)} (${pct}% of total)`;
+    stats.totalTokens > 0 ? percent((stats.unpricedTokens / stats.totalTokens) * 100) : percent(0);
+  return `${humanizeTokens(stats.unpricedTokens)} (${pct} of total)`;
 }
 
-export function formatProject(path: string | undefined, width = 32): string {
-  const p = path ?? "-";
-  if (p.length <= width) return p;
-  return "..." + p.slice(-(width - 1));
+export function formatProject(path: string | undefined, width = 32, unicode = false): string {
+  return truncateStart(path ?? "-", width, unicode);
 }
 
 export function printWarningsToStderr(warnings: Warning[]): void {
