@@ -12,6 +12,7 @@ import {
 import { printWarningsToStderr } from "../util/format.js";
 import type { SharedCommandOptions } from "../util/options.js";
 import { resolvePipelineOptions } from "../util/pipeline-options.js";
+import { createScanProgress, shouldShowScanProgress } from "../util/progress.js";
 import { buildStatsFilters, renderStats } from "../ui/stats.js";
 import { resolveRenderMode, validateRenderOptions } from "../ui/mode.js";
 
@@ -34,12 +35,20 @@ export async function runStats(opts: SharedCommandOptions): Promise<number> {
   const agg = new StatsAggregator();
   agg.useEstimates = !!opts.estimateCost;
 
-  for await (const result of runPipeline(resolved.pipeline)) {
-    mergeWarnings(warnings, result.warnings);
-    if (!result.session) continue;
-    let session = result.session;
-    if (opts.estimateCost) session = applyEstimate(session);
-    agg.add(session);
+  const progress = createScanProgress({ enabled: shouldShowScanProgress(opts) });
+  try {
+    for await (const result of runPipeline({
+      ...resolved.pipeline,
+      onFileDiscovered: (n) => progress.update(n),
+    })) {
+      mergeWarnings(warnings, result.warnings);
+      if (!result.session) continue;
+      let session = result.session;
+      if (opts.estimateCost) session = applyEstimate(session);
+      agg.add(session);
+    }
+  } finally {
+    progress.done();
   }
 
   const stats = agg.report();

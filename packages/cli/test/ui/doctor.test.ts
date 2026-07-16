@@ -54,16 +54,18 @@ function isAscii(text: string): boolean {
 describe("renderDoctor", () => {
   it("uses mandatory text status labels in plain mode", () => {
     const lines = renderDoctor(sampleReport, { mode: "plain", color: false, unicode: false });
-    const statusLine = lines.find((line) => line.includes("status"));
-    expect(statusLine).toContain("ok - 5 log file(s)");
+    const statusLine = lines.find((line) => line.includes("ok - 5 log file(s)"));
+    expect(statusLine).toBeDefined();
     expect(isAscii(statusLine!)).toBe(true);
     expect(statusLine).not.toContain("✓");
+    expect(lines).toContain("status: healthy");
   });
 
   it("adds optional glyphs in rich unicode mode without dropping text labels", () => {
     const lines = renderDoctor(sampleReport, { mode: "rich", color: false, unicode: true });
-    const statusLine = lines.find((line) => stripAnsi(line).includes("status"));
-    expect(stripAnsi(statusLine!)).toContain("ok ✓ — 5 log file(s)");
+    const statusLine = lines.find((line) => stripAnsi(line).includes("ok ✓ — 5 log file(s)"));
+    expect(statusLine).toBeDefined();
+    expect(stripAnsi(lines.join("\n"))).toContain("status: healthy");
   });
 
   it("labels permission issues as err", () => {
@@ -93,14 +95,38 @@ describe("renderDoctor", () => {
 
     const lines = renderDoctor(report, { mode: "plain", color: false, unicode: false });
     expect(lines).toContain("Warnings");
-    expect(lines.at(-1)).toBe(
-      "  warn: discovery:discovery_error failed root session=s1 line=12 cause=EACCES",
-    );
+    expect(
+      lines.some(
+        (line) =>
+          line === "  warn: discovery:discovery_error failed root session=s1 line=12 cause=EACCES",
+      ),
+    ).toBe(true);
   });
 
   it("aligns key/value rows with kv()", () => {
     const lines = renderDoctor(sampleReport, { mode: "plain", color: false, unicode: false });
     expect(lines.some((line) => line.includes("version: 2026-06-v6"))).toBe(true);
     expect(lines.some((line) => line.includes("as of  : 2026-06-27"))).toBe(true);
+  });
+
+  it("leads with adapters and ends with a next action", () => {
+    const lines = renderDoctor(sampleReport, { mode: "plain", color: false, unicode: false });
+    expect(lines[0]).toBe("doctor");
+    expect(lines).toContain("status: healthy");
+    const adaptersAt = lines.indexOf("Adapters");
+    const pricingAt = lines.indexOf("Pricing table");
+    expect(adaptersAt).toBeGreaterThan(-1);
+    expect(pricingAt).toBeGreaterThan(adaptersAt);
+    expect(lines.at(-1)).toBe("next: logsesh stats --since 7d --estimate-cost");
+  });
+
+  it("suggests roots when no log files are found", () => {
+    const report = {
+      ...sampleReport,
+      tools: [baseTool({ candidateFiles: 0 })],
+    };
+    const lines = renderDoctor(report, { mode: "plain", color: false, unicode: false });
+    expect(lines).toContain("status: partial");
+    expect(lines.at(-1)).toContain("--roots");
   });
 });

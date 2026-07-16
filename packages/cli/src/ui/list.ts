@@ -1,10 +1,19 @@
 import type { Estimate, SessionSummary } from "@logsesh/core";
 import type { WriteStream } from "node:tty";
 import { truncateAnsi } from "./charts.js";
-import { humanizeTokens } from "./num.js";
-import { padLeft, padRight, rule, termWidth, truncateMiddle } from "./layout.js";
+import { emptySessionsHint, emptySessionsMessage, renderEmpty } from "./empty.js";
+import { humanizeTokens, money } from "./num.js";
+import {
+  padLeft,
+  padRight,
+  rule,
+  sectionChrome,
+  termWidth,
+  truncateMiddle,
+  truncateStart,
+} from "./layout.js";
 import type { RenderMode } from "./mode.js";
-import { createTheme } from "./theme.js";
+import { type Theme, createTheme } from "./theme.js";
 
 import { LIST_COL_GAP } from "../constants.js";
 
@@ -13,27 +22,21 @@ function formatDate(iso: string | undefined): string {
   return iso.slice(0, 10);
 }
 
-function formatProjectPlain(path: string | undefined, width: number): string {
-  const p = path ?? "-";
-  if (p.length <= width) return p;
-  if (width <= 3) return p.slice(0, width);
-  return "..." + p.slice(-(width - 3));
-}
-
 function formatCostPlain(costUsd: number | null, estimate?: Estimate): string {
-  if (costUsd !== null) return `$${costUsd.toFixed(2)}`;
-  if (typeof estimate?.costUsd === "number") return `~$${estimate.costUsd.toFixed(2)} est`;
+  if (costUsd !== null) return money(costUsd);
+  if (typeof estimate?.costUsd === "number")
+    return `${money(estimate.costUsd, { estimated: true })} est`;
   return "unknown";
 }
 
 function formatCostRich(
   costUsd: number | null,
   estimate: Estimate | undefined,
-  theme: ReturnType<typeof createTheme>,
+  theme: Theme,
 ): string {
-  if (costUsd !== null) return `$${costUsd.toFixed(2)}`;
+  if (costUsd !== null) return money(costUsd);
   if (typeof estimate?.costUsd === "number")
-    return theme.accent(`~$${estimate.costUsd.toFixed(2)} est`);
+    return theme.accent(`${money(estimate.costUsd, { estimated: true })} est`);
   return theme.muted("unknown");
 }
 
@@ -73,7 +76,14 @@ function columnWidths(rows: ListRow[], width: number) {
 function renderPlainTable(sessions: SessionSummary[], width: number): string[] {
   const rows = buildRows(sessions);
   const { dateW, toolW, projectW, turnsW, tokensW, costW } = columnWidths(rows, width);
-  const header = ["DATE", "TOOL", truncateMiddle("PROJECT", projectW), "TURNS", "TOKENS", "COST"];
+  const header = [
+    "DATE",
+    "TOOL",
+    truncateMiddle("PROJECT", projectW, false),
+    "TURNS",
+    "TOKENS",
+    "COST",
+  ];
   const widths = [dateW, toolW, projectW, turnsW, tokensW, costW];
   const gap = " ".repeat(LIST_COL_GAP);
 
@@ -85,7 +95,7 @@ function renderPlainTable(sessions: SessionSummary[], width: number): string[] {
     const cells = [
       row.date,
       row.tool,
-      formatProjectPlain(row.project, projectW),
+      truncateStart(row.project, projectW, false),
       row.turns,
       row.tokens,
       row.costPlain,
@@ -106,19 +116,18 @@ function renderRichTable(sessions: SessionSummary[], mode: RenderMode, width: nu
   const theme = createTheme(mode);
   const rows = buildRows(sessions);
   const { dateW, toolW, projectW, turnsW, tokensW, costW } = columnWidths(rows, width);
-  const lines: string[] = [];
-
-  lines.push(
+  const lines: string[] = [
+    ...sectionChrome("list", width, mode, theme),
     [
       theme.label(padRight("DATE", dateW)),
       theme.label(padRight("TOOL", toolW)),
-      theme.label(padRight(truncateMiddle("PROJECT", projectW), projectW)),
+      theme.label(padRight(truncateMiddle("PROJECT", projectW, mode.unicode), projectW)),
       theme.label(padLeft("TURNS", turnsW)),
       theme.label(padLeft("TOKENS", tokensW)),
       theme.label(padLeft("COST", costW)),
     ].join(" ".repeat(LIST_COL_GAP)),
-  );
-  lines.push(theme.dim(rule(width)));
+    theme.dim(rule(width)),
+  ];
 
   for (let i = 0; i < sessions.length; i++) {
     const session = sessions[i]!;
@@ -127,7 +136,7 @@ function renderRichTable(sessions: SessionSummary[], mode: RenderMode, width: nu
       [
         padRight(row.date, dateW),
         padRight(theme.tool(session.tool, row.tool), toolW),
-        padRight(truncateMiddle(row.project, projectW), projectW),
+        padRight(truncateMiddle(row.project, projectW, mode.unicode), projectW),
         padLeft(row.turns, turnsW),
         padLeft(row.tokens, tokensW),
         padLeft(formatCostRich(session.costUsd, session.estimate, theme), costW),
@@ -143,11 +152,18 @@ export function renderList(
   mode: RenderMode,
   opts: { filters: string; stream?: WriteStream },
 ): string[] {
+  const width = termWidth(opts.stream ?? process.stdout);
+
   if (sessions.length === 0) {
-    return [`no sessions matched (${opts.filters})`];
+    const empty = renderEmpty({
+      message: emptySessionsMessage(opts.filters),
+      hint: emptySessionsHint(opts.filters),
+    });
+    if (mode.mode === "plain") return empty;
+    const theme = createTheme(mode);
+    return [...sectionChrome("list", width, mode, theme), ...empty];
   }
 
-  const width = termWidth(opts.stream ?? process.stdout);
   const lines =
     mode.mode === "plain"
       ? renderPlainTable(sessions, width)

@@ -12,8 +12,10 @@ import {
 import { printWarningsToStderr } from "../util/format.js";
 import type { SharedCommandOptions } from "../util/options.js";
 import { resolvePipelineOptions } from "../util/pipeline-options.js";
+import { createScanProgress, shouldShowScanProgress } from "../util/progress.js";
+import { describeActiveFilters } from "../ui/filters.js";
 import { resolveRenderMode, validateRenderOptions } from "../ui/mode.js";
-import { renderSearchMatch, renderSearchSeparator } from "../ui/search.js";
+import { renderSearchEmpty, renderSearchMatches } from "../ui/search.js";
 
 export interface SearchOptions extends SharedCommandOptions {
   searchQuery: string;
@@ -52,15 +54,23 @@ export async function runSearch(opts: SearchOptions): Promise<number> {
   }
   const patterns = parsedPatterns.patterns;
 
-  for await (const result of runPipeline(resolved.pipeline)) {
-    mergeWarnings(warnings, result.warnings);
-    if (!result.session) continue;
-    const match = searchSession(result.session, opts.searchQuery, {
-      includeReasoning: opts.includeReasoning,
-      includeToolOutput: opts.includeToolOutput,
-      redactPatterns: patterns,
-    });
-    if (match) matches.push(match);
+  const progress = createScanProgress({ enabled: shouldShowScanProgress(opts) });
+  try {
+    for await (const result of runPipeline({
+      ...resolved.pipeline,
+      onFileDiscovered: (n) => progress.update(n),
+    })) {
+      mergeWarnings(warnings, result.warnings);
+      if (!result.session) continue;
+      const match = searchSession(result.session, opts.searchQuery, {
+        includeReasoning: opts.includeReasoning,
+        includeToolOutput: opts.includeToolOutput,
+        redactPatterns: patterns,
+      });
+      if (match) matches.push(match);
+    }
+  } finally {
+    progress.done();
   }
 
   if (opts.json) {
@@ -75,18 +85,19 @@ export async function runSearch(opts: SearchOptions): Promise<number> {
   } else {
     printWarningsToStderr(warnings);
     const renderMode = resolveRenderMode(opts);
-    for (let index = 0; index < matches.length; index++) {
-      const match = matches[index]!;
-      for (const line of renderSearchMatch(match, opts.searchQuery, renderMode)) {
+    const filters = describeActiveFilters({ ...opts, query: opts.searchQuery });
+    if (matches.length === 0) {
+      for (const line of renderSearchEmpty(filters, renderMode)) {
         console.log(line);
       }
-      if (match.totalHits > match.snippets.length) {
-        console.error(`  (+${match.totalHits - match.snippets.length} more hits)`);
+    } else {
+      for (const line of renderSearchMatches(matches, opts.searchQuery, renderMode, { filters })) {
+        console.log(line);
       }
-      if (index < matches.length - 1) {
-        const separator = renderSearchSeparator(renderMode);
-        if (separator) console.log(separator);
-        else console.log("");
+      for (const match of matches) {
+        if (match.totalHits > match.snippets.length) {
+          console.error(`  (+${match.totalHits - match.snippets.length} more hits)`);
+        }
       }
     }
   }

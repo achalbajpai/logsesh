@@ -1,5 +1,4 @@
 import { doctorEnvelopeSchema, parseRootsOverride, runDoctor } from "@logsesh/core";
-import { printWarningsToStderr } from "../util/format.js";
 import { renderDoctor } from "../ui/doctor.js";
 import { resolveRenderMode, validateRenderOptions } from "../ui/mode.js";
 
@@ -36,8 +35,6 @@ export async function runDoctorCommand(opts: DoctorOptions): Promise<number> {
     console.log(JSON.stringify(report, null, 2));
     return 0;
   }
-
-  printWarningsToStderr(report.warnings ?? []);
 
   const renderMode = resolveRenderMode(opts);
   for (const line of renderDoctor(report, renderMode)) {

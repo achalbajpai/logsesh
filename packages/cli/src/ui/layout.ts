@@ -1,13 +1,21 @@
 import { TERM_DEFAULT_WIDTH, TERM_MAX_WIDTH } from "../constants.js";
 import type { WriteStream } from "node:tty";
+import type { RenderMode } from "./mode.js";
+import type { Theme } from "./theme.js";
 
 export function termWidth(stream: WriteStream = process.stdout): number {
   const columns = stream.columns ?? TERM_DEFAULT_WIDTH;
   return Math.min(TERM_MAX_WIDTH, columns);
 }
 
-export function heading(title: string): string {
-  return title;
+export function sectionChrome(
+  title: string,
+  width: number,
+  mode: RenderMode,
+  theme: Theme,
+): string[] {
+  if (mode.mode === "plain") return [title];
+  return [theme.label(title), theme.dim(rule(width))];
 }
 
 export function rule(width: number, char = "─"): string {
@@ -19,13 +27,35 @@ export function kv(rows: Array<[label: string, value: string]>, labelWidth?: num
   return rows.map(([label, value]) => `${label.padEnd(width)}: ${value}`);
 }
 
-export function truncateMiddle(text: string, width: number): string {
+export function kvThemed(
+  rows: Array<[label: string, value: string]>,
+  theme: Theme,
+  labelWidth?: number,
+): string[] {
+  const width = labelWidth ?? Math.max(...rows.map(([label]) => label.length), 0);
+  return rows.map(
+    ([label, value]) => `${theme.label(`${label.padEnd(width)}:`)} ${theme.value(value)}`,
+  );
+}
+
+export function truncateMiddle(text: string, width: number, unicode = true): string {
   if (width <= 0) return "";
   if (text.length <= width) return text;
-  if (width <= 3) return text.slice(0, width);
-  const head = Math.ceil((width - 1) / 2);
-  const tail = Math.floor((width - 1) / 2);
-  return `${text.slice(0, head)}…${text.slice(text.length - tail)}`;
+  const ellipsis = unicode ? "…" : "...";
+  const ellipsisLen = ellipsis.length;
+  if (width <= ellipsisLen) return text.slice(0, width);
+  const inner = width - ellipsisLen;
+  const head = Math.ceil(inner / 2);
+  const tail = Math.floor(inner / 2);
+  return `${text.slice(0, head)}${ellipsis}${text.slice(text.length - tail)}`;
+}
+
+export function truncateStart(text: string, width: number, unicode = true): string {
+  if (width <= 0) return "";
+  if (text.length <= width) return text;
+  const ellipsis = unicode ? "…" : "...";
+  if (width <= ellipsis.length) return text.slice(0, width);
+  return ellipsis + text.slice(-(width - ellipsis.length));
 }
 
 export function stripAnsi(text: string): string {

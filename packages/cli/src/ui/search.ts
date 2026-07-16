@@ -2,7 +2,15 @@ import type { SearchMatch } from "@logsesh/core";
 import { parseSearchQuery } from "@logsesh/core";
 import type { WriteStream } from "node:tty";
 import { formatProject } from "../util/format.js";
-import { rule, sanitizeControl, sanitizeInline, stripAnsi, termWidth } from "./layout.js";
+import { emptySearchHint, emptySearchMessage, renderEmpty } from "./empty.js";
+import {
+  rule,
+  sanitizeControl,
+  sanitizeInline,
+  sectionChrome,
+  stripAnsi,
+  termWidth,
+} from "./layout.js";
 import type { RenderMode } from "./mode.js";
 import { createTheme } from "./theme.js";
 
@@ -50,7 +58,7 @@ export function highlightSnippet(
 
 function renderMatchHeader(match: SearchMatch, mode: RenderMode): string {
   const toolLabel = sanitizeInline(match.tool);
-  const project = formatProject(sanitizeInline(match.projectPath ?? "-"), 28);
+  const project = formatProject(sanitizeInline(match.projectPath ?? "-"), 28, mode.unicode);
   const timestamp = sanitizeInline(match.timestamp ?? "-");
   const sessionId = sanitizeInline(match.sessionId);
   if (mode.mode === "plain") {
@@ -89,19 +97,42 @@ export function renderSearchSeparator(
   return createTheme(mode).dim(rule(termWidth(stream)));
 }
 
+export function renderSearchEmpty(
+  filters: string,
+  mode: RenderMode,
+  opts?: { stream?: WriteStream },
+): string[] {
+  const empty = renderEmpty({
+    message: emptySearchMessage(filters),
+    hint: emptySearchHint(),
+  });
+  if (mode.mode === "plain") return empty;
+  const theme = createTheme(mode);
+  const width = termWidth(opts?.stream ?? process.stdout);
+  return [...sectionChrome("search", width, mode, theme), ...empty];
+}
+
 export function renderSearchMatches(
   matches: SearchMatch[],
   queryInput: string,
   mode: RenderMode,
-  opts?: { stream?: WriteStream },
+  opts?: { stream?: WriteStream; filters?: string },
 ): string[] {
-  if (matches.length === 0) return [];
+  if (matches.length === 0) {
+    return renderSearchEmpty(opts?.filters ?? "no filters", mode, opts);
+  }
 
-  const lines: string[] = [];
+  const width = termWidth(opts?.stream ?? process.stdout);
+  const theme = createTheme(mode);
+  const lines: string[] =
+    mode.mode === "rich" ? [...sectionChrome("search", width, mode, theme)] : [];
+
   for (let index = 0; index < matches.length; index++) {
     lines.push(...renderSearchMatch(matches[index]!, queryInput, mode));
     if (index < matches.length - 1) {
-      lines.push(renderSearchSeparator(mode, opts?.stream ?? process.stdout));
+      const separator = renderSearchSeparator(mode, opts?.stream ?? process.stdout);
+      if (separator) lines.push(separator);
+      else lines.push("");
     }
   }
 

@@ -263,6 +263,7 @@ export interface PipelineOptions extends DiscoverOptions, ParseOptions {
   queryTextFilter?: boolean;
   estimateCost?: boolean;
   maxParseConcurrency?: number;
+  onFileDiscovered?: (filesDiscovered: number) => void;
 }
 
 export interface SanitizeOptions {

@@ -110,6 +110,7 @@ export async function* runPipeline(opts: PipelineOptions = {}): AsyncIterable<Pi
         });
       })) {
         const fileOrder = discoveryOrder++;
+        opts.onFileDiscovered?.(fileOrder + 1);
         while (inFlight >= limit) {
           if (pending.size === 0) break;
           await Promise.race(pending);
