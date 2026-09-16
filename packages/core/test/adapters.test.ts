@@ -6,6 +6,7 @@ import { getEnabledAdapters, parseRootsOverride } from "../src/adapters/index.js
 import type { Session } from "../src/types.js";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { toPosixPath } from "../src/util.js";
 
 const fixtures = join(fileURLToPath(new URL(".", import.meta.url)), "fixtures");
 
@@ -75,7 +76,9 @@ describe("claude adapter", () => {
       discovered.push(file.path);
     }
     expect(discovered.some((path) => path.endsWith("parent.jsonl"))).toBe(true);
-    expect(discovered.some((path) => path.includes("subagents/agent-abc123.jsonl"))).toBe(true);
+    expect(
+      discovered.some((path) => toPosixPath(path).includes("subagents/agent-abc123.jsonl")),
+    ).toBe(true);
 
     const agent = discovered.find((path) => path.endsWith("agent-abc123.jsonl"))!;
     const sessions: Session[] = [];
