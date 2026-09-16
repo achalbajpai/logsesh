@@ -11,6 +11,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Pin TypeScript 7.0.2 and tsdown 0.22.14. Package declarations come from `tsc --emitDeclarationOnly`; the TypeScript 5.7 emit alias is gone. tsdown stays on 0.22 so local Node 25 still runs (0.23 dropped it).
 - Add `pnpm check:release` for version alignment, changelog headings, schema drift, pricing, and packed tarball contents. It is part of `verify`. A version tag also requires a dated changelog heading and matching package versions.
 - Split CI into verify (ubuntu / Node 22, including check:release), a PR runtime matrix (ubuntu/macOS/Windows on Node 22, plus ubuntu on Node 24 and 26), and a single coverage job. Tag releases re-check `RELEASE_TAG` and smoke-test the published CLI without failing the job.
+- JSONL parse streams raw buffers with an 8 MiB per-record cap. Files over 512 MiB are read as 64 MiB head + tail. The old implicit 200 MiB whole-file skip is gone unless `maxFileBytes` is set explicitly.
+- Adapters finish sessions through `ParseContext`. `SessionBuilder` setters throw after `finalize()`. Codex usage is the last cumulative snapshot, not a sum of deltas.
+
+### Added
+
+- Optional `fidelity`, `lineage`, `branch`, and `source.lifecycle` on `logsesh.session.v1`.
+- Parse diagnostics for oversized records, unknown record types, unknown content blocks, large-file gaps, duplicate event ordinals, and mixed usage shapes.
 
 ## [0.2.3] - Unreleased
 

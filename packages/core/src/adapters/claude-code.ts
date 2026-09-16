@@ -1,5 +1,5 @@
 import { ClaudeModelTracker } from "../model-resolution.js";
-import { SessionBuilder } from "../session-builder.js";
+import { ParseContext } from "../parse-context.js";
 import { detectRootAccess } from "../fs-walk.js";
 import type {
   Adapter,
@@ -9,12 +9,7 @@ import type {
   SessionFile,
   ToolName,
 } from "../types.js";
-import {
-  decodeClaudeProjectSlug,
-  parseJsonLine,
-  readJsonlLines,
-  sessionFileNameId,
-} from "../util.js";
+import { decodeClaudeProjectSlug, parentDirName, sessionFileNameId } from "../util.js";
 import { lstat, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -81,6 +76,11 @@ const claudeContentBlockSchema = z.discriminatedUnion("type", [
 function parseClaudeContentBlock(raw: unknown): ClaudeContentBlock | null {
   const parsed = claudeContentBlockSchema.safeParse(raw);
   return parsed.success ? parsed.data : null;
+}
+
+function unknownBlockType(raw: unknown): string | undefined {
+  if (!raw || typeof raw !== "object" || !("type" in raw)) return undefined;
+  return typeof raw.type === "string" ? raw.type : undefined;
 }
 
 function claudeRoot(opts: DiscoverOptions): string {
@@ -158,143 +158,106 @@ export const claudeCodeAdapter: Adapter = {
 
   async *parse(file: SessionFile, opts: ParseOptions): AsyncIterable<Session> {
     const sessionId = sessionFileNameId(file.path);
-    const slug = file.path.split("/").slice(-2, -1)[0] ?? "";
-    const projectPath = decodeClaudeProjectSlug(slug);
-
-    const builder = new SessionBuilder({
+    const projectPath = decodeClaudeProjectSlug(parentDirName(file.path));
+    const ctx = new ParseContext({
       tool: "claude-code",
       adapterVersion: ADAPTER_VERSIONS["claude-code"],
-      sourcePath: file.path,
+      file,
+      opts,
       sessionId,
       projectPath,
-      maxTurnChars: opts.maxTurnChars,
-      maxToolOutputChars: opts.maxToolOutputChars,
     });
-
-    let resolvedProjectPath = projectPath;
     const modelTracker = new ClaudeModelTracker();
 
-    const readResult = await readJsonlLines(
-      file.path,
-      (line, lineNumber) => {
-        const parsed = parseJsonLine(line, lineNumber, file.path);
-        if (!parsed.ok) {
-          builder.addWarning({
-            code: "malformed_line",
-            message: parsed.error,
-            severity: "warn",
-            scope: "parse",
-            sourcePath: file.path,
-            sessionId,
-            line: lineNumber,
-          });
-          return;
-        }
+    for await (const rec of ctx.records()) {
+      const record = ctx.decode(rec, claudeLineSchema, "Claude record");
+      if (!record) continue;
+      if (!record.type) continue;
+      if (CLAUDE_IGNORED_LINE_TYPES.has(record.type)) {
+        ctx.ignoreRecord(record.type);
+        continue;
+      }
 
-        const lineParsed = claudeLineSchema.safeParse(parsed.value);
-        if (!lineParsed.success) {
-          builder.addWarning({
-            code: "invalid_line_shape",
-            message: `Line ${lineNumber}: invalid Claude record shape`,
-            severity: "warn",
-            scope: "parse",
-            sourcePath: file.path,
-            sessionId,
-            line: lineNumber,
-          });
-          return;
-        }
+      if (record.cwd) ctx.setProjectPath(record.cwd);
 
-        const record = lineParsed.data;
-        if (!record.type || CLAUDE_IGNORED_LINE_TYPES.has(record.type)) return;
+      if (record.type === "user" && record.message) {
+        const blocks = mapClaudeUserContent(record.message.content, (type) =>
+          ctx.unknownBlock(type),
+        );
+        const toolResults = blocks.filter((b) => b.kind === "tool_result");
+        const otherBlocks = blocks.filter((b) => b.kind !== "tool_result");
 
-        if (record.cwd) resolvedProjectPath = record.cwd;
-
-        if (record.type === "user" && record.message) {
-          const blocks = mapClaudeUserContent(record.message.content);
-          const toolResults = blocks.filter((b) => b.kind === "tool_result");
-          const otherBlocks = blocks.filter((b) => b.kind !== "tool_result");
-
-          if (otherBlocks.length > 0) {
-            builder.addRecord({
-              role: "user",
-              sourceLine: lineNumber,
-              blocks: otherBlocks,
-              timestamp: record.timestamp,
-            });
-          }
-
-          for (const tr of toolResults) {
-            if (tr.kind !== "tool_result") continue;
-            builder.addToolResult({
-              toolUseId: tr.toolUseId,
-              sourceLine: lineNumber,
-              output: tr.output,
-              status: tr.status,
-            });
-          }
-          return;
-        }
-
-        if (record.type === "assistant" && record.message) {
-          const usage = record.message.usage;
-          const usageWeight = usage
-            ? (usage.input_tokens ?? 0) +
-              (usage.output_tokens ?? 0) +
-              (usage.cache_read_input_tokens ?? 0) +
-              (usage.cache_creation_input_tokens ?? 0)
-            : 0;
-          modelTracker.observe(record.model ?? record.message.model, usageWeight);
-
-          const msgId = record.message.id ?? `line-${lineNumber}`;
-          const blocks = mapClaudeAssistantContent(record.message.content);
-          const usageBlock = record.message.usage
-            ? {
-                inputTokens: record.message.usage.input_tokens,
-                outputTokens: record.message.usage.output_tokens,
-                cacheReadTokens: record.message.usage.cache_read_input_tokens,
-                cacheWriteTokens: record.message.usage.cache_creation_input_tokens,
-                totalTokens:
-                  (record.message.usage.input_tokens ?? 0) +
-                  (record.message.usage.output_tokens ?? 0) +
-                  (record.message.usage.cache_read_input_tokens ?? 0) +
-                  (record.message.usage.cache_creation_input_tokens ?? 0),
-              }
-            : undefined;
-
-          builder.addRecord({
-            role: "assistant",
-            fragmentGroupId: msgId,
-            sourceLine: lineNumber,
-            blocks,
-            usage: usageBlock,
+        if (otherBlocks.length > 0) {
+          ctx.addRecord({
+            role: "user",
+            sourceLine: rec.seq,
+            blocks: otherBlocks,
             timestamp: record.timestamp,
           });
         }
-      },
-      { maxFileBytes: opts.maxFileBytes },
-    );
 
-    if (readResult.skipped) {
-      builder.addWarning({
-        code: "file_too_large",
-        message: `File exceeds max size (${readResult.size} bytes), skipped`,
-        severity: "warn",
-        scope: "parse",
-        sourcePath: file.path,
-        sessionId,
-      });
+        for (const tr of toolResults) {
+          if (tr.kind !== "tool_result") continue;
+          ctx.addToolResult({
+            toolUseId: tr.toolUseId,
+            sourceLine: rec.seq,
+            output: tr.output,
+            status: tr.status,
+          });
+        }
+        continue;
+      }
+
+      if (record.type === "assistant" && record.message) {
+        const usage = record.message.usage;
+        const usageWeight = usage
+          ? (usage.input_tokens ?? 0) +
+            (usage.output_tokens ?? 0) +
+            (usage.cache_read_input_tokens ?? 0) +
+            (usage.cache_creation_input_tokens ?? 0)
+          : 0;
+        modelTracker.observe(record.model ?? record.message.model, usageWeight);
+
+        const msgId = record.message.id ?? `line-${rec.seq}`;
+        const blocks = mapClaudeAssistantContent(record.message.content, (type) =>
+          ctx.unknownBlock(type),
+        );
+        const usageBlock = record.message.usage
+          ? {
+              inputTokens: record.message.usage.input_tokens,
+              outputTokens: record.message.usage.output_tokens,
+              cacheReadTokens: record.message.usage.cache_read_input_tokens,
+              cacheWriteTokens: record.message.usage.cache_creation_input_tokens,
+              totalTokens:
+                (record.message.usage.input_tokens ?? 0) +
+                (record.message.usage.output_tokens ?? 0) +
+                (record.message.usage.cache_read_input_tokens ?? 0) +
+                (record.message.usage.cache_creation_input_tokens ?? 0),
+            }
+          : undefined;
+
+        ctx.addRecord({
+          role: "assistant",
+          fragmentGroupId: msgId,
+          sourceLine: rec.seq,
+          blocks,
+          usage: usageBlock,
+          timestamp: record.timestamp,
+        });
+        continue;
+      }
+
+      ctx.unknownRecord(record.type);
     }
 
-    const session = builder.finalize();
-    session.projectPath = resolvedProjectPath;
-    session.model = modelTracker.resolve();
-    yield session;
+    ctx.setModel(modelTracker.resolve());
+    yield ctx.finish();
   },
 };
 
 function mapClaudeUserContent(
   content: unknown,
+  onUnknown: (type: string) => void,
 ): Array<
   | { kind: "text"; text: string }
   | { kind: "image"; mediaType?: string; bytes?: number; note?: string }
@@ -307,7 +270,11 @@ function mapClaudeUserContent(
   const result: ReturnType<typeof mapClaudeUserContent> = [];
   for (const raw of content) {
     const block = parseClaudeContentBlock(raw);
-    if (!block) continue;
+    if (!block) {
+      const type = unknownBlockType(raw);
+      if (type) onUnknown(type);
+      continue;
+    }
     if (block.type === "text") {
       result.push({ kind: "text", text: block.text });
     } else if (block.type === "image") {
@@ -330,7 +297,7 @@ function mapClaudeUserContent(
   return result;
 }
 
-function mapClaudeAssistantContent(content: unknown) {
+function mapClaudeAssistantContent(content: unknown, onUnknown: (type: string) => void) {
   if (!content) return [];
   if (typeof content === "string") return [{ kind: "text" as const, text: content }];
   if (!Array.isArray(content)) return [];
@@ -343,7 +310,11 @@ function mapClaudeAssistantContent(content: unknown) {
 
   for (const raw of content) {
     const block = parseClaudeContentBlock(raw);
-    if (!block) continue;
+    if (!block) {
+      const type = unknownBlockType(raw);
+      if (type) onUnknown(type);
+      continue;
+    }
     if (block.type === "text") {
       blocks.push({ kind: "text", text: block.text });
     } else if (block.type === "thinking") {

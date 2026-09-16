@@ -1,27 +1,35 @@
+import { elideBinaryString, elideStoredValue } from "./elide.js";
+import { LOG_FORMAT_VERSION_UNKNOWN, SESSION_SCHEMA_VERSION } from "./constants.js";
 import type {
   AddRecordInput,
   AddToolResultInput,
+  AgentLineage,
   ContentBlock,
   InputContentBlock,
   Session,
   SessionBuilderOptions,
+  SourceFidelity,
   ToolCall,
   Turn,
   Usage,
   Warning,
 } from "./types.js";
-import { LOG_FORMAT_VERSION_UNKNOWN, SESSION_SCHEMA_VERSION } from "./constants.js";
 
 interface FragmentEntry {
   sourceLine: number;
   blocks: InputContentBlock[];
-  usage?: Usage;
   timestamp?: string;
 }
 
 interface PendingTurn {
   sourceLine: number;
   turn: Omit<Turn, "index">;
+}
+
+export interface ObserveUsageInput {
+  mode: "delta" | "cumulative";
+  usage: Usage;
+  key?: string;
 }
 
 function blocksEqual(a: InputContentBlock, b: InputContentBlock): boolean {
@@ -95,6 +103,17 @@ function truncateText(text: string, max: number): { text: string; truncated: boo
   return { text: text.slice(0, max) + "...", truncated: true };
 }
 
+function lineageHasEvidence(lineage: AgentLineage): boolean {
+  return (
+    lineage.role !== undefined ||
+    lineage.parentSessionId !== undefined ||
+    lineage.agentId !== undefined ||
+    lineage.agentType !== undefined ||
+    lineage.originator !== undefined ||
+    lineage.depth !== undefined
+  );
+}
+
 function boundToolOutput(
   output: unknown,
   maxChars: number,
@@ -121,26 +140,188 @@ function boundToolOutput(
 }
 
 export class SessionBuilder {
-  private readonly opts: SessionBuilderOptions;
+  private readonly sourcePath: string;
+  private readonly tool: SessionBuilderOptions["tool"];
+  private readonly adapterVersion: string;
+  private readonly maxTurnChars: number | undefined;
+  private readonly maxToolOutputChars: number | undefined;
+  private sessionId: string;
+  private projectPath: string | undefined;
+  private model: string | undefined;
+  private logFormatVersion: string | undefined;
+  private branch: string | undefined;
+  private lineage: AgentLineage | undefined;
+  private lifecycle: "active" | "archived" | undefined;
   private readonly warnings: Warning[] = [];
   private readonly fragments = new Map<string, FragmentEntry[]>();
   private readonly fragmentUsage = new Map<string, Usage>();
   private readonly pendingTurns: PendingTurn[] = [];
   private readonly toolCallsById = new Map<string, ToolCall>();
+  private readonly seenOrdinals = new Set<number>();
+  private readonly partialReasons = new Set<string>();
   private timestamps: string[] = [];
   private turnCounter = 0;
   private finalizedSession: Session | null = null;
+  private usageMode: "delta" | "cumulative" | undefined;
+  private cumulativeUsage: Usage | undefined;
+  private wholeFileSkip = false;
+  private recordsObserved = 0;
+  private recordsRecognized = 0;
+  private recordsUnknown = 0;
+  private recordsMalformed = 0;
+  private recordsOversized = 0;
 
   constructor(opts: SessionBuilderOptions) {
-    this.opts = opts;
+    this.tool = opts.tool;
+    this.adapterVersion = opts.adapterVersion;
+    this.sourcePath = opts.sourcePath;
+    this.sessionId = opts.sessionId;
+    this.projectPath = opts.projectPath;
+    this.model = opts.model;
+    this.logFormatVersion = opts.logFormatVersion;
+    this.maxTurnChars = opts.maxTurnChars;
+    this.maxToolOutputChars = opts.maxToolOutputChars;
   }
 
   addWarning(warning: Warning): void {
+    this.ensureOpen();
     this.warnings.push(warning);
   }
 
+  setSessionId(sessionId: string): void {
+    this.ensureOpen();
+    this.sessionId = sessionId;
+  }
+
+  setProjectPath(projectPath: string | undefined): void {
+    this.ensureOpen();
+    if (projectPath === undefined) return;
+    this.projectPath = projectPath;
+  }
+
+  setModel(model: string | undefined): void {
+    this.ensureOpen();
+    if (model === undefined) return;
+    this.model = model;
+  }
+
+  setLogFormatVersion(version: string | undefined): void {
+    this.ensureOpen();
+    if (version === undefined) return;
+    this.logFormatVersion = version;
+  }
+
+  setBranch(branch: string | undefined): void {
+    this.ensureOpen();
+    if (branch === undefined) return;
+    this.branch = branch;
+  }
+
+  setLineage(lineage: AgentLineage): void {
+    this.ensureOpen();
+    const next: AgentLineage = { ...this.lineage };
+    if (lineage.role !== undefined) next.role = lineage.role;
+    if (lineage.parentSessionId !== undefined) next.parentSessionId = lineage.parentSessionId;
+    if (lineage.agentId !== undefined) next.agentId = lineage.agentId;
+    if (lineage.agentType !== undefined) next.agentType = lineage.agentType;
+    if (lineage.originator !== undefined) next.originator = lineage.originator;
+    if (lineage.depth !== undefined) next.depth = lineage.depth;
+    this.lineage = next;
+  }
+
+  setSourceLifecycle(lifecycle: "active" | "archived"): void {
+    this.ensureOpen();
+    if (this.lifecycle !== undefined && this.lifecycle !== lifecycle) {
+      this.addWarning({
+        code: "source_changed_during_scan",
+        message: `Source lifecycle changed from ${this.lifecycle} to ${lifecycle}`,
+        severity: "warn",
+        scope: "parse",
+        sourcePath: this.sourcePath,
+        sessionId: this.sessionId,
+      });
+    }
+    this.lifecycle = lifecycle;
+  }
+
+  markPartial(reason: string): void {
+    this.ensureOpen();
+    this.partialReasons.add(reason);
+  }
+
+  markWholeFileSkip(): void {
+    this.ensureOpen();
+    this.wholeFileSkip = true;
+  }
+
+  noteObservedRecord(): void {
+    this.ensureOpen();
+    this.recordsObserved += 1;
+  }
+
+  noteUnknownRecord(): void {
+    this.ensureOpen();
+    this.recordsUnknown += 1;
+  }
+
+  noteMalformedRecord(): void {
+    this.ensureOpen();
+    this.recordsMalformed += 1;
+  }
+
+  noteOversizedRecord(): void {
+    this.ensureOpen();
+    this.recordsOversized += 1;
+  }
+
+  observeUsage(input: ObserveUsageInput): void {
+    this.ensureOpen();
+    if (this.usageMode !== undefined && this.usageMode !== input.mode) {
+      this.addWarning({
+        code: "unsupported_usage_shape",
+        message: `Usage mixing ${input.mode} with ${this.usageMode}; keeping ${this.usageMode}`,
+        severity: "warn",
+        scope: "parse",
+        sourcePath: this.sourcePath,
+        sessionId: this.sessionId,
+      });
+      return;
+    }
+    this.usageMode = input.mode;
+    if (input.mode === "cumulative") {
+      this.cumulativeUsage = { ...input.usage };
+      return;
+    }
+    const key = input.key ?? "";
+    this.fragmentUsage.set(key, input.usage);
+  }
+
+  observeSequence(ordinal: number): void {
+    this.ensureOpen();
+    if (this.seenOrdinals.has(ordinal)) {
+      this.addWarning({
+        code: "duplicate_event_ordinal",
+        message: `Duplicate event ordinal ${ordinal}`,
+        severity: "warn",
+        scope: "parse",
+        sourcePath: this.sourcePath,
+        sessionId: this.sessionId,
+      });
+    }
+    this.seenOrdinals.add(ordinal);
+  }
+
   addRecord(input: AddRecordInput): void {
+    this.ensureOpen();
+    this.recordsRecognized += 1;
     if (input.timestamp) this.timestamps.push(input.timestamp);
+    if (input.usage) {
+      this.observeUsage({
+        mode: "delta",
+        usage: input.usage,
+        key: input.fragmentGroupId,
+      });
+    }
 
     if (input.role === "assistant" && input.fragmentGroupId) {
       const groupId = input.fragmentGroupId;
@@ -148,13 +329,9 @@ export class SessionBuilder {
       entries.push({
         sourceLine: input.sourceLine,
         blocks: input.blocks,
-        usage: input.usage,
         timestamp: input.timestamp,
       });
       this.fragments.set(groupId, entries);
-      if (input.usage) {
-        this.fragmentUsage.set(groupId, input.usage);
-      }
       this.registerToolCallsFromBlocks(input.blocks);
       return;
     }
@@ -170,16 +347,19 @@ export class SessionBuilder {
   }
 
   addToolResult(input: AddToolResultInput): void {
-    const maxOut = this.opts.maxToolOutputChars ?? 50_000;
-    const { value: output, truncated } = boundToolOutput(input.output, maxOut);
+    this.ensureOpen();
+    this.recordsRecognized += 1;
+    const maxOut = this.maxToolOutputChars ?? 50_000;
+    const elided = elideStoredValue(input.output);
+    const { value: output, truncated } = boundToolOutput(elided, maxOut);
     if (truncated) {
       this.addWarning({
         code: "truncated_tool_output",
         message: `Tool output truncated at ${maxOut} characters`,
         severity: "warn",
         scope: "parse",
-        sourcePath: this.opts.sourcePath,
-        sessionId: this.opts.sessionId,
+        sourcePath: this.sourcePath,
+        sessionId: this.sessionId,
         line: input.sourceLine,
       });
     }
@@ -194,8 +374,8 @@ export class SessionBuilder {
         message: `Tool result with no matching call: ${input.toolUseId}`,
         severity: "warn",
         scope: "parse",
-        sourcePath: this.opts.sourcePath,
-        sessionId: this.opts.sessionId,
+        sourcePath: this.sourcePath,
+        sessionId: this.sessionId,
         line: input.sourceLine,
       });
     }
@@ -245,30 +425,73 @@ export class SessionBuilder {
 
     const usage = this.computeSessionUsage();
     const sortedTs = [...this.timestamps].sort();
+    const stampedWarnings = this.warnings.map((warning) => ({
+      ...warning,
+      sessionId: this.sessionId,
+    }));
 
-    this.finalizedSession = {
+    const session: Session = {
       schemaVersion: SESSION_SCHEMA_VERSION,
-      id: this.opts.sessionId,
+      id: this.sessionId,
       source: {
-        tool: this.opts.tool,
-        adapterVersion: this.opts.adapterVersion,
-        logFormatVersion: this.opts.logFormatVersion ?? LOG_FORMAT_VERSION_UNKNOWN,
-        sourcePath: this.opts.sourcePath,
+        tool: this.tool,
+        adapterVersion: this.adapterVersion,
+        logFormatVersion: this.logFormatVersion ?? LOG_FORMAT_VERSION_UNKNOWN,
+        sourcePath: this.sourcePath,
       },
-      tool: this.opts.tool,
+      tool: this.tool,
       startedAt: sortedTs[0],
       endedAt: sortedTs[sortedTs.length - 1],
-      projectPath: this.opts.projectPath,
-      model: this.opts.model,
+      projectPath: this.projectPath,
+      model: this.model,
       usage,
       costUsd: null,
       turns,
-      warnings: this.warnings.length > 0 ? [...this.warnings] : undefined,
+      warnings: stampedWarnings.length > 0 ? stampedWarnings : undefined,
+      fidelity: this.deriveFidelity(turns.length),
     };
-    return this.finalizedSession;
+    if (this.branch !== undefined) session.branch = this.branch;
+    if (this.lineage !== undefined && lineageHasEvidence(this.lineage)) {
+      session.lineage = this.lineage;
+    }
+    if (this.lifecycle !== undefined) session.source.lifecycle = this.lifecycle;
+
+    this.finalizedSession = session;
+    return session;
+  }
+
+  private deriveFidelity(turnCount: number): SourceFidelity {
+    const fidelity: SourceFidelity = {
+      completeness: "complete",
+      recordsObserved: this.recordsObserved,
+      recordsRecognized: this.recordsRecognized,
+      recordsUnknown: this.recordsUnknown,
+      recordsMalformed: this.recordsMalformed,
+      recordsOversized: this.recordsOversized,
+    };
+
+    if (this.wholeFileSkip) {
+      fidelity.completeness = "metadata-only";
+      fidelity.reason = "file_too_large";
+      return fidelity;
+    }
+
+    if (this.partialReasons.size > 0) {
+      fidelity.completeness = "partial";
+      fidelity.reason = [...this.partialReasons][0];
+      return fidelity;
+    }
+
+    if (this.recordsRecognized === 0 && turnCount === 0) {
+      fidelity.completeness = "metadata-only";
+      fidelity.reason = "no_recognized_records";
+    }
+
+    return fidelity;
   }
 
   private computeSessionUsage(): Usage | undefined {
+    if (this.usageMode === "cumulative") return this.cumulativeUsage;
     const usages = [...this.fragmentUsage.values()];
     if (usages.length === 0) return undefined;
     return usages.reduce<Usage | undefined>((acc, u) => mergeUsage(acc, u), undefined);
@@ -307,11 +530,16 @@ export class SessionBuilder {
     timestamp?: string;
     id?: string;
   }): Omit<Turn, "index"> {
-    const maxTurn = this.opts.maxTurnChars ?? 100_000;
+    const maxTurn = this.maxTurnChars ?? 100_000;
     const content: ContentBlock[] = [];
 
     for (const block of input.blocks) {
-      if (block.kind === "text" || block.kind === "thinking") {
+      if (block.kind === "text") {
+        const elided = elideBinaryString(block.text);
+        if (elided) {
+          content.push(elided);
+          continue;
+        }
         const { text, truncated } = truncateText(block.text, maxTurn);
         if (truncated) {
           this.addWarning({
@@ -319,15 +547,31 @@ export class SessionBuilder {
             message: `Turn text truncated at ${maxTurn} characters`,
             severity: "warn",
             scope: "parse",
-            sourcePath: this.opts.sourcePath,
-            sessionId: this.opts.sessionId,
+            sourcePath: this.sourcePath,
+            sessionId: this.sessionId,
             line: input.sourceLine,
           });
         }
-        content.push(block.kind === "text" ? { kind: "text", text } : { kind: "thinking", text });
-      } else {
-        content.push(toContentBlock(block));
+        content.push({ kind: "text", text });
+        continue;
       }
+      if (block.kind === "thinking") {
+        const { text, truncated } = truncateText(block.text, maxTurn);
+        if (truncated) {
+          this.addWarning({
+            code: "truncated_turn",
+            message: `Turn text truncated at ${maxTurn} characters`,
+            severity: "warn",
+            scope: "parse",
+            sourcePath: this.sourcePath,
+            sessionId: this.sessionId,
+            line: input.sourceLine,
+          });
+        }
+        content.push({ kind: "thinking", text });
+        continue;
+      }
+      content.push(toContentBlock(block));
     }
 
     const toolCalls = extractToolCalls(content);
@@ -342,5 +586,11 @@ export class SessionBuilder {
       content,
       toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
     };
+  }
+
+  private ensureOpen(): void {
+    if (this.finalizedSession) {
+      throw new Error("SessionBuilder cannot be mutated after finalize()");
+    }
   }
 }

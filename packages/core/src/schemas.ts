@@ -49,6 +49,25 @@ const warningSchema = z.object({
 
 const publicWarningSchema = warningSchema.omit({ sourcePath: true });
 
+const agentLineageSchema = z.object({
+  role: z.enum(["main", "subagent"]).optional(),
+  parentSessionId: z.string().optional(),
+  agentId: z.string().optional(),
+  agentType: z.string().optional(),
+  originator: z.string().optional(),
+  depth: z.number().optional(),
+});
+
+const sourceFidelitySchema = z.object({
+  completeness: z.enum(["complete", "partial", "metadata-only"]),
+  reason: z.string().optional(),
+  recordsObserved: z.number().optional(),
+  recordsRecognized: z.number().optional(),
+  recordsUnknown: z.number().optional(),
+  recordsMalformed: z.number().optional(),
+  recordsOversized: z.number().optional(),
+});
+
 const usageSchema = z.object({
   inputTokens: z.number().optional(),
   outputTokens: z.number().optional(),
@@ -88,12 +107,16 @@ export const sessionSchema = z.object({
     adapterVersion: z.string(),
     logFormatVersion: z.union([z.string(), z.literal("unknown")]).optional(),
     sourcePath: z.string(),
+    lifecycle: z.enum(["active", "archived"]).optional(),
   }),
   tool: toolNameSchema,
   startedAt: z.string().optional(),
   endedAt: z.string().optional(),
   projectPath: z.string().optional(),
   model: z.string().optional(),
+  branch: z.string().optional(),
+  lineage: agentLineageSchema.optional(),
+  fidelity: sourceFidelitySchema.optional(),
   usage: usageSchema.optional(),
   costUsd: z.number().nullable(),
   estimate: estimateSchema.optional(),
@@ -168,12 +191,16 @@ export const publicSessionSchema = z.object({
     tool: toolNameSchema,
     adapterVersion: z.string(),
     logFormatVersion: z.union([z.string(), z.literal("unknown")]).optional(),
+    lifecycle: z.enum(["active", "archived"]).optional(),
   }),
   tool: toolNameSchema,
   startedAt: z.string().optional(),
   endedAt: z.string().optional(),
   projectPath: z.string().optional(),
   model: z.string().optional(),
+  branch: z.string().optional(),
+  lineage: agentLineageSchema.optional(),
+  fidelity: sourceFidelitySchema.optional(),
   usage: usageSchema.optional(),
   costUsd: z.number().nullable(),
   estimate: estimateSchema.optional(),

@@ -36,8 +36,36 @@ export const DEFAULT_LOG_ROOT_SEGMENTS = {
 
 export const DEFAULT_PARSE_CONCURRENCY = 4;
 export const DOCTOR_CANDIDATE_SCAN_LIMIT = 1000;
+/** @deprecated Explicit `ParseOptions.maxFileBytes` still hard-skips. There is no default skip. */
 export const DEFAULT_MAX_FILE_BYTES = 200 * 1024 * 1024;
+export const DEFAULT_MAX_RECORD_BYTES = 8 * 1024 * 1024;
+export const DEFAULT_LARGE_FILE_THRESHOLD = 512 * 1024 * 1024;
+export const DEFAULT_DEGRADED_HEAD_BYTES = 64 * 1024 * 1024;
+export const DEFAULT_DEGRADED_TAIL_BYTES = 64 * 1024 * 1024;
 export const EXPORT_FILE_MODE = 0o600;
+
+export const PARSE_WARNING_CODES = [
+  "malformed_line",
+  "invalid_line_shape",
+  "file_too_large",
+  "skipped_role",
+  "dropped_encrypted_reasoning",
+  "missing_token_usage",
+  "truncated_tool_output",
+  "unmatched_tool_result",
+  "truncated_turn",
+  "discovery_error",
+  "discovery_permission",
+  "unknown_record_type",
+  "unknown_content_block",
+  "oversized_record",
+  "partial_large_file",
+  "duplicate_event_ordinal",
+  "unsupported_usage_shape",
+  "source_changed_during_scan",
+] as const;
+
+export type ParseWarningCode = (typeof PARSE_WARNING_CODES)[number];
 
 export const MS_PER_DAY = 86400000;
 export const MS_PER_HOUR = 3600000;

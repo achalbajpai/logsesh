@@ -13,15 +13,19 @@ import type {
   Turn,
   Warning,
 } from "./types.js";
-import { anonymizePath } from "./util.js";
+import { anonymizePath, anonymizePathsInText } from "./util.js";
 
 function stripThinking(blocks: ContentBlock[]): PublicTurn["content"] {
   return blocks.filter((b): b is PublicTurn["content"][number] => b.kind !== "thinking");
 }
 
-function anonymizeWarning(w: Warning): PublicWarning {
+function anonymizeWarning(w: Warning, home = process.env.HOME ?? ""): PublicWarning {
   const { sourcePath: _sourcePath, ...rest } = w;
-  return rest;
+  return {
+    ...rest,
+    message: anonymizePathsInText(rest.message, home),
+    cause: rest.cause ? anonymizePathsInText(rest.cause, home) : rest.cause,
+  };
 }
 
 function anonymizeSessionPaths(session: Session, home = process.env.HOME ?? ""): Session {
@@ -32,6 +36,8 @@ function anonymizeSessionPaths(session: Session, home = process.env.HOME ?? ""):
       : session.projectPath,
     warnings: session.warnings?.map((w) => ({
       ...w,
+      message: anonymizePathsInText(w.message, home),
+      cause: w.cause ? anonymizePathsInText(w.cause, home) : w.cause,
       sourcePath: w.sourcePath ? anonymizePath(w.sourcePath, home) : w.sourcePath,
     })),
   };
@@ -49,6 +55,7 @@ function publicSource(source: Source): PublicSession["source"] {
     tool: source.tool,
     adapterVersion: source.adapterVersion,
     logFormatVersion: source.logFormatVersion,
+    lifecycle: source.lifecycle,
   };
 }
 
@@ -82,7 +89,7 @@ function buildReasoningSession(
     ...fields,
     turns,
     source: publicSource(source),
-    warnings: warnings?.map(anonymizeWarning),
+    warnings: warnings?.map((w) => anonymizeWarning(w)),
   };
 }
 
@@ -96,7 +103,7 @@ function buildPublicSession(
     ...fields,
     turns,
     source: publicSource(source),
-    warnings: warnings?.map(anonymizeWarning),
+    warnings: warnings?.map((w) => anonymizeWarning(w)),
   };
 }
 

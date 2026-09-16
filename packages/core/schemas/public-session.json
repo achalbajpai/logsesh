@@ -33,6 +33,13 @@
               "const": "unknown"
             }
           ]
+        },
+        "lifecycle": {
+          "type": "string",
+          "enum": [
+            "active",
+            "archived"
+          ]
         }
       },
       "required": [
@@ -60,6 +67,72 @@
     },
     "model": {
       "type": "string"
+    },
+    "branch": {
+      "type": "string"
+    },
+    "lineage": {
+      "type": "object",
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": [
+            "main",
+            "subagent"
+          ]
+        },
+        "parentSessionId": {
+          "type": "string"
+        },
+        "agentId": {
+          "type": "string"
+        },
+        "agentType": {
+          "type": "string"
+        },
+        "originator": {
+          "type": "string"
+        },
+        "depth": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "fidelity": {
+      "type": "object",
+      "properties": {
+        "completeness": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "metadata-only"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "recordsObserved": {
+          "type": "number"
+        },
+        "recordsRecognized": {
+          "type": "number"
+        },
+        "recordsUnknown": {
+          "type": "number"
+        },
+        "recordsMalformed": {
+          "type": "number"
+        },
+        "recordsOversized": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "completeness"
+      ],
+      "additionalProperties": false
     },
     "usage": {
       "type": "object",

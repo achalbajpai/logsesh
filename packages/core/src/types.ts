@@ -92,6 +92,26 @@ export interface Source {
   adapterVersion: string;
   logFormatVersion?: string;
   sourcePath: string;
+  lifecycle?: "active" | "archived";
+}
+
+export interface AgentLineage {
+  role?: "main" | "subagent";
+  parentSessionId?: string;
+  agentId?: string;
+  agentType?: string;
+  originator?: string;
+  depth?: number;
+}
+
+export interface SourceFidelity {
+  completeness: "complete" | "partial" | "metadata-only";
+  reason?: string;
+  recordsObserved?: number;
+  recordsRecognized?: number;
+  recordsUnknown?: number;
+  recordsMalformed?: number;
+  recordsOversized?: number;
 }
 
 export interface Session {
@@ -103,6 +123,9 @@ export interface Session {
   endedAt?: string;
   projectPath?: string;
   model?: string;
+  branch?: string;
+  lineage?: AgentLineage;
+  fidelity?: SourceFidelity;
   usage?: Usage;
   costUsd: number | null;
   estimate?: Estimate;
@@ -245,7 +268,10 @@ export interface SessionFile {
 }
 
 export interface ParseOptions {
+  /** @deprecated Explicit value keeps the old whole-file skip. There is no default skip at 200 MiB. */
   maxFileBytes?: number;
+  maxRecordBytes?: number;
+  largeFileMode?: "auto" | "degraded" | "full";
   maxTurnChars?: number;
   maxToolOutputChars?: number;
 }

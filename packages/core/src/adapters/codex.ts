@@ -1,5 +1,5 @@
 import { CodexModelTracker, looksLikeModelId } from "../model-resolution.js";
-import { SessionBuilder } from "../session-builder.js";
+import { ParseContext } from "../parse-context.js";
 import { detectRootAccess, walkFiles } from "../fs-walk.js";
 import type {
   Adapter,
@@ -10,7 +10,7 @@ import type {
   ToolName,
   Usage,
 } from "../types.js";
-import { parseJsonLine, readJsonlLines, sessionFileNameId } from "../util.js";
+import { sessionFileNameId } from "../util.js";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import {
@@ -60,12 +60,15 @@ function messageText(content: unknown): string {
   if (!Array.isArray(content)) return "";
   return content
     .map((part) => {
-      if (!part || typeof part !== "object") return "";
-      const text = (part as { text?: unknown }).text;
-      return typeof text === "string" ? text : "";
+      if (!part || typeof part !== "object" || !("text" in part)) return "";
+      return typeof part.text === "string" ? part.text : "";
     })
     .filter(Boolean)
     .join("\n");
+}
+
+function payloadType(payload: Record<string, unknown>): string | undefined {
+  return typeof payload.type === "string" ? payload.type : undefined;
 }
 
 export const codexAdapter: Adapter = {
@@ -108,229 +111,194 @@ export const codexAdapter: Adapter = {
   },
 
   async *parse(file: SessionFile, opts: ParseOptions): AsyncIterable<Session> {
-    let sessionId = sessionFileNameId(file.path);
-    let projectPath: string | undefined;
+    const ctx = new ParseContext({
+      tool: "codex",
+      adapterVersion: ADAPTER_VERSIONS.codex,
+      file,
+      opts,
+      sessionId: sessionFileNameId(file.path),
+    });
     const modelTracker = new CodexModelTracker();
-    let lastTokenUsage: Usage | undefined;
     let sawTokenCount = false;
     let sawUsableTokenCount = false;
     let stepCounter = 0;
 
-    const builder = new SessionBuilder({
-      tool: "codex",
-      adapterVersion: ADAPTER_VERSIONS.codex,
-      sourcePath: file.path,
-      sessionId,
-      maxTurnChars: opts.maxTurnChars,
-      maxToolOutputChars: opts.maxToolOutputChars,
-    });
+    for await (const rec of ctx.records()) {
+      const env = ctx.decode(rec, codexLineSchema, "Codex envelope");
+      if (!env) continue;
+      if (typeof env.ordinal === "number") ctx.observeSequence(env.ordinal);
 
-    const readResult = await readJsonlLines(
-      file.path,
-      (line, lineNumber) => {
-        const parsed = parseJsonLine(line, lineNumber, file.path);
-        if (!parsed.ok) {
-          builder.addWarning({
-            code: "malformed_line",
-            message: parsed.error,
-            severity: "warn",
+      const payload = env.payload;
+      if (env.type === "session_meta") {
+        const meta = parseCodexPayload(codexSessionMetaPayloadSchema, payload);
+        if (!meta) continue;
+        if (meta.id) ctx.setSessionId(meta.id);
+        if (meta.cwd) ctx.setProjectPath(meta.cwd);
+        modelTracker.observe(codexModelFromMeta(meta));
+        continue;
+      }
+
+      if (env.type === "turn_context") {
+        const turn = parseCodexPayload(codexTurnContextPayloadSchema, payload);
+        if (turn?.model) modelTracker.observe(turn.model);
+        continue;
+      }
+
+      if (env.type === "event_msg") {
+        const tokenEvent = parseCodexPayload(codexTokenCountPayloadSchema, payload);
+        if (!tokenEvent) continue;
+        sawTokenCount = true;
+        const total = tokenEvent.info?.total_token_usage;
+        if (total) {
+          sawUsableTokenCount = true;
+          ctx.observeUsage({ mode: "cumulative", usage: mapCodexUsage(total) });
+        }
+        continue;
+      }
+
+      if (env.type !== "response_item") {
+        ctx.unknownRecord(env.type);
+        continue;
+      }
+
+      if (!payload) continue;
+      const kind = payloadType(payload);
+
+      const message = parseCodexPayload(codexMessagePayloadSchema, payload);
+      if (message) {
+        if (message.role === "developer" || message.role === "system") {
+          ctx.addWarning({
+            code: "skipped_role",
+            message: `Skipped ${message.role} message`,
+            severity: "info",
             scope: "parse",
             sourcePath: file.path,
-            sessionId,
-            line: lineNumber,
+            line: rec.line ?? rec.seq,
           });
-          return;
+          continue;
         }
+        if (message.role !== "user" && message.role !== "assistant") continue;
 
-        const lineParsed = codexLineSchema.safeParse(parsed.value);
-        if (!lineParsed.success) {
-          builder.addWarning({
-            code: "invalid_line_shape",
-            message: `Line ${lineNumber}: invalid Codex record shape`,
-            severity: "warn",
+        const text = messageText(message.content);
+        if (!text) continue;
+
+        stepCounter++;
+        ctx.addRecord({
+          role: message.role,
+          fragmentGroupId: `${message.role}-step-${stepCounter}`,
+          sourceLine: rec.seq,
+          blocks: [{ kind: "text", text }],
+          timestamp: env.timestamp,
+        });
+        continue;
+      }
+
+      if (kind === "reasoning") {
+        if (payload.encrypted_content) {
+          ctx.addWarning({
+            code: "dropped_encrypted_reasoning",
+            message: "Dropped encrypted reasoning blob",
+            severity: "info",
             scope: "parse",
             sourcePath: file.path,
-            sessionId,
-            line: lineNumber,
+            line: rec.line ?? rec.seq,
           });
-          return;
         }
-
-        const record = lineParsed.data;
-        const lineType = record.type;
-        const payload = record.payload;
-        if (!payload) return;
-
-        if (lineType === "session_meta") {
-          const meta = parseCodexPayload(codexSessionMetaPayloadSchema, payload);
-          if (!meta) return;
-          if (meta.id) sessionId = meta.id;
-          if (meta.cwd) projectPath = meta.cwd;
-          modelTracker.observe(codexModelFromMeta(meta));
-          return;
-        }
-
-        if (lineType === "turn_context") {
-          const ctx = parseCodexPayload(codexTurnContextPayloadSchema, payload);
-          if (ctx?.model) modelTracker.observe(ctx.model);
-          return;
-        }
-
-        if (lineType === "event_msg") {
-          const tokenEvent = parseCodexPayload(codexTokenCountPayloadSchema, payload);
-          if (!tokenEvent) return;
-          sawTokenCount = true;
-          const total = tokenEvent.info?.total_token_usage;
-          if (total) {
-            sawUsableTokenCount = true;
-            lastTokenUsage = mapCodexUsage(total);
-          }
-          return;
-        }
-
-        if (lineType !== "response_item") return;
-
-        const message = parseCodexPayload(codexMessagePayloadSchema, payload);
-        if (message) {
-          if (message.role === "developer" || message.role === "system") {
-            builder.addWarning({
-              code: "skipped_role",
-              message: `Skipped ${message.role} message`,
-              severity: "info",
-              scope: "parse",
-              sourcePath: file.path,
-              sessionId,
-              line: lineNumber,
-            });
-            return;
-          }
-          if (message.role !== "user" && message.role !== "assistant") return;
-
-          const text = messageText(message.content);
-          if (!text) return;
-
+        const summary =
+          typeof payload.summary === "string" ? payload.summary : messageText(payload.content);
+        if (summary) {
           stepCounter++;
-          builder.addRecord({
-            role: message.role,
-            fragmentGroupId: `${message.role}-step-${stepCounter}`,
-            sourceLine: lineNumber,
-            blocks: [{ kind: "text", text }],
-            timestamp: record.timestamp,
-          });
-          return;
-        }
-
-        if (payload.type === "reasoning") {
-          if (payload.encrypted_content) {
-            builder.addWarning({
-              code: "dropped_encrypted_reasoning",
-              message: "Dropped encrypted reasoning blob",
-              severity: "info",
-              scope: "parse",
-              sourcePath: file.path,
-              sessionId,
-              line: lineNumber,
-            });
-          }
-          const summary =
-            typeof payload.summary === "string" ? payload.summary : messageText(payload.content);
-          if (summary) {
-            stepCounter++;
-            builder.addRecord({
-              role: "assistant",
-              fragmentGroupId: `reasoning-${stepCounter}`,
-              sourceLine: lineNumber,
-              blocks: [{ kind: "thinking", text: summary }],
-              timestamp: record.timestamp,
-            });
-          }
-          return;
-        }
-
-        const functionCall = parseCodexPayload(codexFunctionCallPayloadSchema, payload);
-        if (functionCall) {
-          const callId = requireCallId(functionCall.call_id ?? functionCall.id);
-          if (!callId) return;
-          stepCounter++;
-          builder.addRecord({
+          ctx.addRecord({
             role: "assistant",
-            fragmentGroupId: `call-${callId}`,
-            sourceLine: lineNumber,
-            blocks: [
-              {
-                kind: "tool_use",
-                id: callId,
-                name: typeof functionCall.name === "string" ? functionCall.name : "unknown",
-                input: functionCall.arguments ?? functionCall.input,
-              },
-            ],
-            timestamp: record.timestamp,
-          });
-          return;
-        }
-
-        const functionOutput = parseCodexPayload(codexFunctionCallOutputPayloadSchema, payload);
-        if (functionOutput) {
-          builder.addToolResult({
-            toolUseId: functionOutput.call_id,
-            sourceLine: lineNumber,
-            output: functionOutput.output,
-            status: functionOutput.is_error ? "error" : "success",
-          });
-          return;
-        }
-
-        const webSearch = parseCodexPayload(codexWebSearchPayloadSchema, payload);
-        if (webSearch) {
-          const callId = requireCallId(webSearch.call_id, `web-${lineNumber}`);
-          if (!callId) return;
-          stepCounter++;
-          builder.addRecord({
-            role: "assistant",
-            fragmentGroupId: `call-${callId}`,
-            sourceLine: lineNumber,
-            blocks: [
-              {
-                kind: "tool_use",
-                id: callId,
-                name: "web_search",
-                input: payload,
-              },
-            ],
-            timestamp: record.timestamp,
+            fragmentGroupId: `reasoning-${stepCounter}`,
+            sourceLine: rec.seq,
+            blocks: [{ kind: "thinking", text: summary }],
+            timestamp: env.timestamp,
           });
         }
-      },
-      { maxFileBytes: opts.maxFileBytes },
-    );
+        continue;
+      }
 
-    if (readResult.skipped) {
-      builder.addWarning({
-        code: "file_too_large",
-        message: `File exceeds max size (${readResult.size} bytes), skipped`,
-        severity: "warn",
-        scope: "parse",
-        sourcePath: file.path,
-        sessionId,
-      });
+      const functionCall = parseCodexPayload(codexFunctionCallPayloadSchema, payload);
+      if (functionCall) {
+        const callId = requireCallId(functionCall.call_id ?? functionCall.id);
+        if (!callId) continue;
+        stepCounter++;
+        ctx.addRecord({
+          role: "assistant",
+          fragmentGroupId: `call-${callId}`,
+          sourceLine: rec.seq,
+          blocks: [
+            {
+              kind: "tool_use",
+              id: callId,
+              name: typeof functionCall.name === "string" ? functionCall.name : "unknown",
+              input: functionCall.arguments ?? functionCall.input,
+            },
+          ],
+          timestamp: env.timestamp,
+        });
+        continue;
+      }
+
+      const functionOutput = parseCodexPayload(codexFunctionCallOutputPayloadSchema, payload);
+      if (functionOutput) {
+        ctx.addToolResult({
+          toolUseId: functionOutput.call_id,
+          sourceLine: rec.seq,
+          output: functionOutput.output,
+          status: functionOutput.is_error ? "error" : "success",
+        });
+        continue;
+      }
+
+      const webSearch = parseCodexPayload(codexWebSearchPayloadSchema, payload);
+      if (webSearch) {
+        const callId = requireCallId(webSearch.call_id, `web-${rec.seq}`);
+        if (!callId) continue;
+        stepCounter++;
+        ctx.addRecord({
+          role: "assistant",
+          fragmentGroupId: `call-${callId}`,
+          sourceLine: rec.seq,
+          blocks: [
+            {
+              kind: "tool_use",
+              id: callId,
+              name: "web_search",
+              input: payload,
+            },
+          ],
+          timestamp: env.timestamp,
+        });
+        continue;
+      }
+
+      if (
+        kind === "function_call" ||
+        kind === "custom_tool_call" ||
+        kind === "function_call_output" ||
+        kind === "custom_tool_call_output" ||
+        kind === "web_search_call" ||
+        kind === "message"
+      ) {
+        continue;
+      }
+
+      ctx.unknownRecord(kind ?? "response_item");
     }
 
     if (sawTokenCount && !sawUsableTokenCount) {
-      builder.addWarning({
+      ctx.addWarning({
         code: "missing_token_usage",
         message: "No usable token_count events found",
         severity: "warn",
         scope: "parse",
         sourcePath: file.path,
-        sessionId,
       });
     }
 
-    const session = builder.finalize();
-    session.id = sessionId;
-    session.projectPath = projectPath;
-    session.model = modelTracker.resolve();
-    if (lastTokenUsage) session.usage = lastTokenUsage;
-    yield session;
+    ctx.setModel(modelTracker.resolve());
+    yield ctx.finish();
   },
 };

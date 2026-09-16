@@ -1,4 +1,4 @@
-import { SessionBuilder } from "../session-builder.js";
+import { ParseContext } from "../parse-context.js";
 import type {
   Adapter,
   DiscoverOptions,
@@ -7,7 +7,7 @@ import type {
   SessionFile,
   ToolName,
 } from "../types.js";
-import { parseJsonLine, readJsonlLines, sessionFileNameId } from "../util.js";
+import { sessionFileNameId } from "../util.js";
 import { detectRootAccess } from "../fs-walk.js";
 import { lstat, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -127,116 +127,71 @@ export const geminiAdapter: Adapter = {
   },
 
   async *parse(file: SessionFile, opts: ParseOptions): AsyncIterable<Session> {
-    const sessionId = sessionFileNameId(file.path);
-    let stepCounter = 0;
-    let model: string | undefined;
-
-    const builder = new SessionBuilder({
+    const ctx = new ParseContext({
       tool: "gemini",
       adapterVersion: ADAPTER_VERSIONS.gemini,
-      sourcePath: file.path,
-      sessionId,
+      file,
+      opts,
+      sessionId: sessionFileNameId(file.path),
       logFormatVersion: "experimental",
-      maxTurnChars: opts.maxTurnChars,
-      maxToolOutputChars: opts.maxToolOutputChars,
     });
+    let stepCounter = 0;
 
-    const readResult = await readJsonlLines(
-      file.path,
-      (line, lineNumber) => {
-        const parsed = parseJsonLine(line, lineNumber, file.path);
-        if (!parsed.ok) {
-          builder.addWarning({
-            code: "malformed_line",
-            message: parsed.error,
-            severity: "warn",
-            scope: "parse",
-            sourcePath: file.path,
-            sessionId,
-            line: lineNumber,
-          });
-          return;
+    for await (const rec of ctx.records()) {
+      const record = ctx.decode(rec, geminiLineSchema, "Gemini record");
+      if (!record) continue;
+
+      const model = record.model ?? record.modelVersion;
+      if (model) ctx.setModel(model);
+
+      const role = record.role;
+      if (role !== "user" && role !== "model") continue;
+
+      const blocks: Array<
+        | { kind: "text"; text: string }
+        | { kind: "tool_use"; id: string; name: string; input?: unknown }
+      > = [];
+
+      for (const part of record.parts ?? []) {
+        if ("text" in part && part.text) {
+          blocks.push({ kind: "text", text: part.text });
         }
-
-        const lineParsed = geminiLineSchema.safeParse(parsed.value);
-        if (!lineParsed.success) {
-          builder.addWarning({
-            code: "invalid_line_shape",
-            message: `Line ${lineNumber}: invalid Gemini record shape`,
-            severity: "warn",
-            scope: "parse",
-            sourcePath: file.path,
-            sessionId,
-            line: lineNumber,
-          });
-          return;
-        }
-
-        const record = lineParsed.data;
-        model = record.model ?? record.modelVersion ?? model;
-        const role = record.role;
-        if (role !== "user" && role !== "model") return;
-
-        const blocks: Array<
-          | { kind: "text"; text: string }
-          | { kind: "tool_use"; id: string; name: string; input?: unknown }
-        > = [];
-
-        for (const part of record.parts ?? []) {
-          if ("text" in part && part.text) {
-            blocks.push({ kind: "text", text: part.text });
-          }
-          if ("functionCall" in part && part.functionCall) {
-            const fc = part.functionCall;
-            const id = fc.id ?? `call-${lineNumber}`;
-            blocks.push({ kind: "tool_use", id, name: fc.name ?? "unknown", input: fc.args });
-            stepCounter++;
-          }
-          if ("functionResponse" in part && part.functionResponse) {
-            const fr = part.functionResponse;
-            builder.addToolResult({
-              toolUseId: fr.id ?? `call-${lineNumber}`,
-              sourceLine: lineNumber,
-              output: fr.response,
-              status: "success",
-            });
-          }
-        }
-
-        if (blocks.length > 0) {
+        if ("functionCall" in part && part.functionCall) {
+          const fc = part.functionCall;
+          const id = fc.id ?? `call-${rec.seq}`;
+          blocks.push({ kind: "tool_use", id, name: fc.name ?? "unknown", input: fc.args });
           stepCounter++;
-          builder.addRecord({
-            role: role === "model" ? "assistant" : "user",
-            fragmentGroupId: `${role}-${stepCounter}`,
-            sourceLine: lineNumber,
-            blocks,
-            timestamp: record.timestamp,
-            usage: record.usageMetadata
-              ? {
-                  inputTokens: record.usageMetadata.promptTokenCount,
-                  outputTokens: record.usageMetadata.candidatesTokenCount,
-                  totalTokens: record.usageMetadata.totalTokenCount,
-                }
-              : undefined,
+        }
+        if ("functionResponse" in part && part.functionResponse) {
+          const fr = part.functionResponse;
+          ctx.addToolResult({
+            toolUseId: fr.id ?? `call-${rec.seq}`,
+            sourceLine: rec.seq,
+            output: fr.response,
+            status: "success",
           });
         }
-      },
-      { maxFileBytes: opts.maxFileBytes },
-    );
+      }
 
-    if (readResult.skipped) {
-      builder.addWarning({
-        code: "file_too_large",
-        message: `File exceeds max size (${readResult.size} bytes), skipped`,
-        severity: "warn",
-        scope: "parse",
-        sourcePath: file.path,
-        sessionId,
-      });
+      if (blocks.length > 0) {
+        stepCounter++;
+        ctx.addRecord({
+          role: role === "model" ? "assistant" : "user",
+          fragmentGroupId: `${role}-${stepCounter}`,
+          sourceLine: rec.seq,
+          blocks,
+          timestamp: record.timestamp,
+          usage: record.usageMetadata
+            ? {
+                inputTokens: record.usageMetadata.promptTokenCount,
+                outputTokens: record.usageMetadata.candidatesTokenCount,
+                totalTokens: record.usageMetadata.totalTokenCount,
+              }
+            : undefined,
+        });
+      }
     }
 
-    const session = builder.finalize();
-    session.model = model;
-    yield session;
+    yield ctx.finish();
   },
 };

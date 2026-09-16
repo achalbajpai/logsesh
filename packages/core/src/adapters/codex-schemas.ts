@@ -11,6 +11,7 @@ const tokenUsageSchema = z.object({
 export const codexLineSchema = z.object({
   type: z.string(),
   timestamp: z.string().optional(),
+  ordinal: z.number().optional(),
   payload: z.record(z.string(), z.unknown()).optional(),
 });
 

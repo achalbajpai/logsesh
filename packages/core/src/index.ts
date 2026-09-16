@@ -8,6 +8,7 @@ export type {
   JsonExportEnvelopeFormat,
   JsonlRecordFormat,
   DoctorEnvelopeFormat,
+  ParseWarningCode,
 } from "./constants.js";
 export {
   SESSION_SCHEMA_VERSION,
@@ -19,6 +20,11 @@ export {
   JSONL_RECORD_FORMAT,
   DOCTOR_ENVELOPE_FORMAT,
   TOOL_NAMES,
+  PARSE_WARNING_CODES,
+  DEFAULT_MAX_RECORD_BYTES,
+  DEFAULT_LARGE_FILE_THRESHOLD,
+  DEFAULT_DEGRADED_HEAD_BYTES,
+  DEFAULT_DEGRADED_TAIL_BYTES,
 } from "./constants.js";
 export type {
   ContentBlock,
@@ -62,8 +68,14 @@ export type {
   AddRecordInput,
   AddToolResultInput,
   SessionBuilderOptions,
+  AgentLineage,
+  SourceFidelity,
 } from "./types.js";
 export { SessionBuilder } from "./session-builder.js";
+export { ParseContext } from "./parse-context.js";
+export type { ParseContextOptions } from "./parse-context.js";
+export { readJsonl, planRead } from "./jsonl-reader.js";
+export type { JsonlRow, JsonlRecordRow, JsonlReadOptions, ReadPlan } from "./jsonl-reader.js";
 export {
   discover,
   discoverFiles,
