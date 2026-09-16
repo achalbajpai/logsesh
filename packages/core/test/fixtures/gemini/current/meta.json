@@ -1,0 +1,8 @@
+{
+  "tool": "gemini",
+  "capturedWith": "gemini-cli session JSONL",
+  "capturedAt": "2026-09-16",
+  "sanitized": true,
+  "features": ["set", "tool-call", "usage"],
+  "notes": "Synthetic current-format stream. No private paths."
+}

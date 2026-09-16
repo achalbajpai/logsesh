@@ -5,7 +5,6 @@ import {
   generatedAt,
   listEnvelopeSchema,
   mergeWarnings,
-  runPipeline,
   sessionToSummary,
   toPublicWarnings,
 } from "@logsesh/core";
@@ -16,6 +15,7 @@ import { createScanProgress, shouldShowScanProgress } from "../util/progress.js"
 import { describeActiveFilters } from "../ui/filters.js";
 import { renderList } from "../ui/list.js";
 import { resolveRenderMode, validateRenderOptions } from "../ui/mode.js";
+import { iterateSessions } from "../util/session-source.js";
 
 export async function runList(opts: SharedCommandOptions): Promise<number> {
   if (!opts.json) {
@@ -37,8 +37,9 @@ export async function runList(opts: SharedCommandOptions): Promise<number> {
 
   const progress = createScanProgress({ enabled: shouldShowScanProgress(opts) });
   try {
-    for await (const result of runPipeline({
+    for await (const result of iterateSessions({
       ...resolved.pipeline,
+      noIndex: opts.index === false,
       onFileDiscovered: (n) => progress.update(n),
     })) {
       mergeWarnings(warnings, result.warnings);

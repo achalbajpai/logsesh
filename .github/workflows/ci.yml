@@ -33,16 +33,6 @@ jobs:
       - name: Test
         run: pnpm test
 
-      - name: Test coverage
-        run: pnpm test:coverage
-
-      - name: Upload coverage
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage
-          path: coverage/
-          if-no-files-found: error
-
       - name: Typecheck
         run: pnpm typecheck
 
@@ -58,7 +48,62 @@ jobs:
       - name: Pricing integrity check
         run: pnpm check:pricing
 
-      - name: Package dry-run
-        run: |
-          pnpm --filter @logsesh/core pack --dry-run
-          pnpm --filter logsesh pack --dry-run
+      - name: Release check
+        run: pnpm check:release
+
+  runtime:
+    name: runtime (${{ matrix.os }}, node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ github.event_name == 'pull_request' && fromJSON('{"include":[{"os":"ubuntu-latest","node":22},{"os":"macos-latest","node":22},{"os":"windows-latest","node":22},{"os":"ubuntu-latest","node":24},{"os":"ubuntu-latest","node":26}]}') || fromJSON('{"include":[{"os":"ubuntu-latest","node":22}]}') }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Test
+        run: pnpm test
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Test coverage
+        run: pnpm test:coverage
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          if-no-files-found: error

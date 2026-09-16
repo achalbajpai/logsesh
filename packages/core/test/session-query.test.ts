@@ -52,4 +52,37 @@ describe("session query filters", () => {
     expect(matchesSessionQuery(s, "auth", "logsesh")).toBe(true);
     expect(matchesSessionQuery(s, "billing", "logsesh")).toBe(false);
   });
+
+  it("filters by tool, model, agent, parent, branch, and toolcall", () => {
+    const s: Session = {
+      ...session("/tmp/app", "rate limiter"),
+      tool: "codex",
+      model: "gpt-5.6-sol",
+      branch: "feat/langfuse",
+      lineage: { parentSessionId: "parent-1", agentId: "Explore" },
+      turns: [
+        {
+          id: "t1",
+          index: 0,
+          role: "assistant",
+          content: [{ kind: "text", text: "rate limiter" }],
+          toolCalls: [{ id: "c1", name: "Bash" }],
+        },
+      ],
+    };
+    expect(matchesSessionQuery(s, "tool:codex limiter")).toBe(true);
+    expect(matchesSessionQuery(s, "tool:claude-code limiter")).toBe(false);
+    expect(matchesSessionQuery(s, "model:gpt-5.6")).toBe(true);
+    expect(matchesSessionQuery(s, "agent:Explore")).toBe(true);
+    expect(
+      matchesSessionQuery(
+        { ...s, lineage: { parentSessionId: "parent-1", agentId: "abc123", agentType: "Explore" } },
+        "agent:Explore",
+      ),
+    ).toBe(true);
+    expect(matchesSessionQuery(s, "parent:parent-1")).toBe(true);
+    expect(matchesSessionQuery(s, "branch:feat/langfuse")).toBe(true);
+    expect(matchesSessionQuery(s, "toolcall:Bash")).toBe(true);
+    expect(matchesSessionQuery(s, "toolcall:Read")).toBe(false);
+  });
 });

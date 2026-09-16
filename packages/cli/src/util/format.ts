@@ -1,5 +1,11 @@
 import type { StatsReport, ToolName, Warning } from "@logsesh/core";
-import { TOOL_NAMES, anonymizePath, anonymizePathsInText, summarizeWarnings } from "@logsesh/core";
+import {
+  TOOL_NAMES,
+  anonymizePath,
+  anonymizePathsInText,
+  parseToolField,
+  summarizeWarnings,
+} from "@logsesh/core";
 import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MINUTE } from "../constants.js";
 import { truncateStart } from "../ui/layout.js";
 import { humanizeTokens, money, percent } from "../ui/num.js";
@@ -60,24 +66,26 @@ export function parseToolFilter(value: string | undefined): { tools?: ToolName[]
   for (const part of value.split(",")) {
     const trimmed = part.trim();
     if (!trimmed) continue;
-    if (!TOOL_NAMES.includes(trimmed as ToolName)) {
+    const parsed = parseToolField(trimmed);
+    if (!parsed) {
       return {
         error: `Invalid tool "${trimmed}". Expected: ${TOOL_NAMES.join(", ")}`,
       };
     }
-    tools.push(trimmed as ToolName);
+    tools.push(parsed);
   }
   return { tools: tools.length > 0 ? tools : undefined };
 }
 
 export function parseToolName(value: string): { tool?: ToolName; error?: string } {
   const trimmed = value.trim();
-  if (!TOOL_NAMES.includes(trimmed as ToolName)) {
+  const parsed = parseToolField(trimmed);
+  if (!parsed) {
     return {
       error: `Invalid tool "${trimmed}". Expected: ${TOOL_NAMES.join(", ")}`,
     };
   }
-  return { tool: trimmed as ToolName };
+  return { tool: parsed };
 }
 
 export function parseSinceUntil(

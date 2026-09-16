@@ -17,6 +17,7 @@
           "enum": [
             "claude-code",
             "codex",
+            "antigravity",
             "gemini"
           ]
         },
@@ -33,6 +34,13 @@
               "const": "unknown"
             }
           ]
+        },
+        "lifecycle": {
+          "type": "string",
+          "enum": [
+            "active",
+            "archived"
+          ]
         }
       },
       "required": [
@@ -46,6 +54,7 @@
       "enum": [
         "claude-code",
         "codex",
+        "antigravity",
         "gemini"
       ]
     },
@@ -369,7 +378,8 @@
               "parse",
               "export",
               "package",
-              "pricing"
+              "pricing",
+              "index"
             ]
           },
           "sessionId": {
@@ -390,6 +400,74 @@
         ],
         "additionalProperties": false
       }
+    },
+    "lineage": {
+      "type": "object",
+      "properties": {
+        "parentSessionId": {
+          "type": "string"
+        },
+        "agentId": {
+          "type": "string"
+        },
+        "agentType": {
+          "type": "string"
+        },
+        "originator": {
+          "type": "string"
+        },
+        "depth": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "branch": {
+      "type": "string"
+    },
+    "fidelity": {
+      "type": "object",
+      "properties": {
+        "completeness": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "metadata-only"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "recordsObserved": {
+          "type": "number"
+        },
+        "recordsRecognized": {
+          "type": "number"
+        },
+        "recordsIgnored": {
+          "type": "number"
+        },
+        "recordsUnknown": {
+          "type": "number"
+        },
+        "recordsMalformed": {
+          "type": "number"
+        },
+        "recordsOversized": {
+          "type": "number"
+        },
+        "unknownRecordTypes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "completeness"
+      ],
+      "additionalProperties": false
     }
   },
   "required": [

@@ -10,10 +10,9 @@ catalog:
   oxfmt: ^0.16.0
   oxlint: ^1.16.0
   picocolors: ^1.1.1
-  tsdown: ^0.22.3
+  tsdown: 0.22.14
   tsx: ^4.20.3
-  typescript: 7.0.1-rc
-  typescript-emit: npm:typescript@5.7.3
+  typescript: 7.0.2
   vitest: ^4.1.9
   "@vitest/coverage-v8": ^4.1.9
   zod: ^4.4.3

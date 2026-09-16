@@ -18,11 +18,15 @@
     "cli",
     "claude-code",
     "codex",
+    "antigravity",
     "gemini",
     "ai",
     "session-logs",
     "agent-logs"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=22"
   },
@@ -41,7 +45,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsdown && rm -f tsconfig.tsbuildinfo && node ./node_modules/typescript-emit/lib/tsc.js --emitDeclarationOnly -p tsconfig.json",
+    "build": "tsdown && rm -f tsconfig.tsbuildinfo && tsc --emitDeclarationOnly -p tsconfig.json",
     "pretest": "pnpm build",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
@@ -55,7 +59,6 @@
   "devDependencies": {
     "@types/node": "catalog:",
     "tsdown": "catalog:",
-    "typescript-emit": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

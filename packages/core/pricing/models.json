@@ -1,17 +1,22 @@
 {
-  "version": "2026-06-v6",
-  "asOf": "2026-06-27",
+  "version": "2026-09-v7",
+  "asOf": "2026-09-16",
   "sourceUrl": "https://platform.openai.com/docs/pricing",
   "sources": [
     {
       "provider": "openai",
       "url": "https://platform.openai.com/docs/pricing",
-      "asOf": "2026-06-27"
+      "asOf": "2026-09-16"
     },
     {
       "provider": "anthropic",
       "url": "https://docs.anthropic.com/en/docs/about-claude/pricing",
-      "asOf": "2026-06-27"
+      "asOf": "2026-09-16"
+    },
+    {
+      "provider": "google",
+      "url": "https://ai.google.dev/gemini-api/docs/pricing",
+      "asOf": "2026-09-16"
     }
   ],
   "default": {
@@ -21,6 +26,120 @@
     "cacheWrite": 3.75
   },
   "models": [
+    {
+      "provider": "openai",
+      "model": "gpt-5.6-sol",
+      "aliases": [
+        "gpt-5.6-sol",
+        "gpt-5-6-sol"
+      ],
+      "status": "current",
+      "availability": "available",
+      "input": 4,
+      "output": 20,
+      "cacheRead": 0.4,
+      "sourceUrl": "https://platform.openai.com/docs/pricing",
+      "verifiedAt": "2026-09-16",
+      "effectiveFrom": "2026-09-01"
+    },
+    {
+      "provider": "openai",
+      "model": "gpt-5.6-terra",
+      "aliases": [
+        "gpt-5.6-terra",
+        "gpt-5-6-terra"
+      ],
+      "status": "current",
+      "availability": "available",
+      "input": 2,
+      "output": 12,
+      "cacheRead": 0.2,
+      "sourceUrl": "https://platform.openai.com/docs/pricing",
+      "verifiedAt": "2026-09-16",
+      "effectiveFrom": "2026-09-01"
+    },
+    {
+      "provider": "openai",
+      "model": "gpt-5.6-luna",
+      "aliases": [
+        "gpt-5.6-luna",
+        "gpt-5-6-luna"
+      ],
+      "status": "current",
+      "availability": "available",
+      "input": 0.2,
+      "output": 1.2,
+      "cacheRead": 0.02,
+      "sourceUrl": "https://platform.openai.com/docs/pricing",
+      "verifiedAt": "2026-09-16",
+      "effectiveFrom": "2026-09-01"
+    },
+    {
+      "provider": "anthropic",
+      "model": "claude-fable-5.1",
+      "aliases": [
+        "claude-fable-5.1",
+        "claude-fable-5-1",
+        "fable-5.1"
+      ],
+      "status": "current",
+      "availability": "available",
+      "input": 10,
+      "output": 50,
+      "cacheRead": 0.25,
+      "cacheWrite": 12.5,
+      "sourceUrl": "https://docs.anthropic.com/en/docs/about-claude/pricing",
+      "verifiedAt": "2026-09-16",
+      "effectiveFrom": "2026-09-01"
+    },
+    {
+      "provider": "anthropic",
+      "model": "claude-opus-5",
+      "aliases": [
+        "claude-opus-5",
+        "opus-5"
+      ],
+      "status": "current",
+      "availability": "available",
+      "input": 5,
+      "output": 25,
+      "cacheRead": 0.5,
+      "cacheWrite": 6.25,
+      "sourceUrl": "https://docs.anthropic.com/en/docs/about-claude/pricing",
+      "verifiedAt": "2026-09-16",
+      "effectiveFrom": "2026-09-01"
+    },
+    {
+      "provider": "anthropic",
+      "model": "claude-sonnet-5",
+      "aliases": [
+        "claude-sonnet-5",
+        "sonnet-5"
+      ],
+      "status": "current",
+      "availability": "available",
+      "input": 2,
+      "output": 10,
+      "sourceUrl": "https://docs.anthropic.com/en/docs/about-claude/pricing",
+      "verifiedAt": "2026-09-16",
+      "effectiveFrom": "2026-09-01"
+    },
+    {
+      "provider": "google",
+      "model": "gemini-3.8-flash",
+      "aliases": [
+        "gemini-3.8-flash",
+        "gemini-3-8-flash"
+      ],
+      "status": "current",
+      "availability": "available",
+      "input": 0.75,
+      "output": 3.75,
+      "note": "Introductory price through 2026-12-31.",
+      "sourceUrl": "https://ai.google.dev/gemini-api/docs/pricing",
+      "verifiedAt": "2026-09-16",
+      "effectiveFrom": "2026-09-01"
+    },
     {
       "provider": "openai",
       "model": "gpt-5.5-pro",

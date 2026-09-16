@@ -1,0 +1,7 @@
+{
+  "agentType": "Explore",
+  "description": "Explore auth",
+  "model": "claude-sonnet-4-6",
+  "spawnDepth": 1,
+  "toolUseId": "toolu_test"
+}

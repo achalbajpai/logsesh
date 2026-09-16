@@ -1,4 +1,5 @@
 import { closeSync, openSync, readSync } from "node:fs";
+import { posix as posixPath } from "node:path";
 import { z } from "zod";
 import {
   CLAUDE_LOG_TYPES,
@@ -12,13 +13,25 @@ const sniffObjectSchema = z.record(z.string(), z.unknown());
 
 export function inferToolFromPath(filePath: string): ToolName | undefined {
   const normalized = filePath.replace(/\\/g, "/");
-  const base = normalized.split("/").pop() ?? normalized;
+  const base = posixPath.basename(normalized);
 
   if (
     normalized.includes("/.codex/sessions/") ||
+    normalized.includes("/.codex/archived_sessions/") ||
     (base.startsWith("rollout-") && base.endsWith(".jsonl"))
   ) {
     return "codex";
+  }
+  if (
+    normalized.includes("/antigravity-cli/") ||
+    normalized.includes("/antigravity-acp/") ||
+    normalized.includes("/antigravity-ide/") ||
+    (normalized.includes("/.gemini/antigravity") &&
+      (base === "transcript.jsonl" ||
+        base === "transcript_full.jsonl" ||
+        (base.endsWith(".db") && normalized.includes("/conversations/"))))
+  ) {
+    return "antigravity";
   }
   if (
     normalized.includes("/.gemini/") &&
@@ -45,7 +58,28 @@ export function sniffToolFromLogLine(line: string): ToolName | undefined {
     if ("message" in obj && typeof obj.type === "string") {
       if (CLAUDE_LOG_TYPES.has(obj.type)) return "claude-code";
     }
+    if (
+      typeof obj.step_index === "number" &&
+      typeof obj.type === "string" &&
+      (obj.type === "USER_INPUT" ||
+        obj.type === "PLANNER_RESPONSE" ||
+        obj.type === "RUN_COMMAND" ||
+        obj.type === "VIEW_FILE")
+    ) {
+      return "antigravity";
+    }
     if ("parts" in obj && typeof obj.role === "string") {
+      return "gemini";
+    }
+    if ("$set" in obj || "$rewindTo" in obj) return "gemini";
+    if (typeof obj.sessionId === "string" && ("projectHash" in obj || "messages" in obj)) {
+      return "gemini";
+    }
+    if (
+      typeof obj.type === "string" &&
+      ["user", "gemini", "info", "error", "warning"].includes(obj.type) &&
+      "content" in obj
+    ) {
       return "gemini";
     }
   } catch {

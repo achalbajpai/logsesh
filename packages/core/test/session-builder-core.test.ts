@@ -57,4 +57,31 @@ describe("SessionBuilder", () => {
     expect(String(block.output).length).toBeLessThanOrEqual(43);
     expect(session.warnings?.some((w) => w.code === "truncated_tool_output")).toBe(true);
   });
+
+  it("rejects mutation after finalize and keeps cumulative usage from overwriting deltas incorrectly", () => {
+    const builder = new SessionBuilder({
+      tool: "codex",
+      adapterVersion: "0.2.0",
+      sourcePath: "log.jsonl",
+      sessionId: "s1",
+    });
+    builder.addRecord({
+      role: "assistant",
+      fragmentGroupId: "a",
+      sourceLine: 1,
+      blocks: [{ kind: "text", text: "hi" }],
+      usage: { inputTokens: 10, outputTokens: 2, totalTokens: 12 },
+    });
+    builder.observeUsage({
+      mode: "cumulative",
+      usage: { inputTokens: 40, outputTokens: 8, totalTokens: 48 },
+    });
+    builder.setModel("gpt-5.3-codex");
+    builder.setLineage({ parentSessionId: "parent", agentId: "child" });
+    const session = builder.finalize();
+    expect(session.usage?.totalTokens).toBe(48);
+    expect(session.model).toBe("gpt-5.3-codex");
+    expect(session.lineage?.parentSessionId).toBe("parent");
+    expect(() => builder.setModel("nope")).toThrow(/finalized/);
+  });
 });

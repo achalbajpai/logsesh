@@ -18,26 +18,40 @@ export type DoctorEnvelopeFormat = typeof DOCTOR_ENVELOPE_FORMAT;
 
 export const LOG_FORMAT_VERSION_UNKNOWN = "unknown" as const;
 
-export const TOOL_NAMES = ["claude-code", "codex", "gemini"] as const;
+export const TOOL_NAMES = ["claude-code", "codex", "antigravity", "gemini"] as const;
 export type ToolName = (typeof TOOL_NAMES)[number];
 export const VALID_TOOLS = new Set<ToolName>(TOOL_NAMES);
 
 export const ADAPTER_VERSIONS = {
-  "claude-code": "0.1.1",
-  codex: "0.1.1",
-  gemini: "0.1.1-experimental",
+  "claude-code": "0.2.0",
+  codex: "0.2.0",
+  antigravity: "0.2.0",
+  gemini: "0.2.0",
 } as const satisfies Record<ToolName, string>;
 
 export const DEFAULT_LOG_ROOT_SEGMENTS = {
   "claude-code": [".claude", "projects"],
   codex: [".codex", "sessions"],
+  antigravity: [".gemini", "antigravity-cli"],
   gemini: [".gemini", "tmp"],
 } as const satisfies Record<ToolName, readonly string[]>;
 
+export const CODEX_ARCHIVE_ROOT_SEGMENTS = [".codex", "archived_sessions"] as const;
+
 export const DEFAULT_PARSE_CONCURRENCY = 4;
 export const DOCTOR_CANDIDATE_SCAN_LIMIT = 1000;
+export const DOCTOR_SAMPLE_FILE_LIMIT = 3;
 export const DEFAULT_MAX_FILE_BYTES = 200 * 1024 * 1024;
+export const DEFAULT_MAX_RECORD_BYTES = 8 * 1024 * 1024;
+export const DEFAULT_LARGE_FILE_THRESHOLD = 512 * 1024 * 1024;
+export const DEFAULT_DEGRADED_HEAD_BYTES = 64 * 1024 * 1024;
+export const DEFAULT_DEGRADED_TAIL_BYTES = 64 * 1024 * 1024;
+export const DEFAULT_READER_CHUNK_BYTES = 64 * 1024;
+export const PRICING_STALE_AFTER_MS = 90 * 24 * 60 * 60 * 1000;
 export const EXPORT_FILE_MODE = 0o600;
+export const INDEX_DIR_MODE = 0o700;
+export const INDEX_FILE_MODE = 0o600;
+export const BINARY_ELIDE_MIN_CHARS = 512;
 
 export const MS_PER_DAY = 86400000;
 export const MS_PER_HOUR = 3600000;
@@ -48,6 +62,11 @@ export const CODEX_LOG_TYPES = new Set([
   "response_item",
   "event_msg",
   "token_count",
+  "token_usage_record",
+  "turn_context",
+  "world_state",
+  "compacted",
+  "inter_agent_communication_metadata",
 ]);
 export const CLAUDE_LOG_TYPES = new Set(["user", "assistant", "system", "summary"]);
 export const SNIFF_HEAD_BYTES = 8192;
@@ -56,7 +75,15 @@ export const DEFAULT_INFER_TOOL: ToolName = "claude-code";
 export const PLACEHOLDER_MODELS = new Set(["<synthetic>", "synthetic", "unknown"]);
 export const PROVIDER_NAMES = new Set(["anthropic", "azure", "google", "openai", "openrouter"]);
 
-export const KNOWN_QUERY_FIELDS = new Set(["project"]);
+export const KNOWN_QUERY_FIELDS = new Set([
+  "project",
+  "tool",
+  "model",
+  "agent",
+  "parent",
+  "branch",
+  "toolcall",
+]);
 export const QUERY_FIELD_PATTERN = /\b([a-z][a-z0-9_-]*):("([^"]*)"|(\S+))/gi;
 
 export const TOKEN_CATEGORY_FIELDS = {
@@ -93,15 +120,49 @@ export const BUILTIN_REDACT_PATTERNS: RegExp[] = [
   /Bearer\s+[A-Za-z0-9\-._~+/]+=*/gi,
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/g,
   /(?:^|[\s;])(?:API_KEY|SECRET|PASSWORD|TOKEN)\s*=\s*[^\s#]+/gim,
+  /xai-[A-Za-z0-9]{20,}/g,
+  /AIza[0-9A-Za-z\-_]{20,}/g,
+  /ya29\.[0-9A-Za-z\-_.]+/g,
+  /gh[uor]_[A-Za-z0-9]{20,}/g,
+  /xoxe\.xoxp-[A-Za-z0-9-]{10,}/g,
+  /-----BEGIN CERTIFICATE-----[\s\S]*?-----END CERTIFICATE-----/g,
 ];
 
 export const CLAUDE_IGNORED_LINE_TYPES = new Set([
   "queue-operation",
   "file-history-snapshot",
+  "file-history-delta",
   "ai-title",
   "last-prompt",
   "attachment",
+  "system",
+  "summary",
+  "atis-latch",
+  "mode",
+  "permission-mode",
+  "bridge-session",
+  "pr-link",
+  "frame-link",
+  "artifact-autoreact-ledger",
+  "artifact-comment-monitor",
 ]);
+
+export const CODEX_IGNORED_LINE_TYPES = new Set([
+  "world_state",
+  "compacted",
+  "inter_agent_communication_metadata",
+]);
+
+export const CODEX_IGNORED_PAYLOAD_TYPES = new Set([
+  "item_completed",
+  "task_started",
+  "task_complete",
+  "thread_settings_applied",
+  "turn_aborted",
+  "thread_goal_updated",
+]);
+
+export const GEMINI_MESSAGE_TYPES = new Set(["user", "gemini", "info", "error", "warning"]);
 
 export const EXPORT_DEFAULTS = {
   transcriptRedactDefault: true,

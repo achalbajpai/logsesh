@@ -24,7 +24,10 @@ function anonymizeWarning(w: Warning): PublicWarning {
   return rest;
 }
 
-function anonymizeSessionPaths(session: Session, home = process.env.HOME ?? ""): Session {
+function anonymizeSessionPaths(
+  session: Session,
+  home = process.env.HOME ?? process.env.USERPROFILE ?? "",
+): Session {
   return {
     ...session,
     projectPath: session.projectPath
@@ -49,6 +52,7 @@ function publicSource(source: Source): PublicSession["source"] {
     tool: source.tool,
     adapterVersion: source.adapterVersion,
     logFormatVersion: source.logFormatVersion,
+    lifecycle: source.lifecycle,
   };
 }
 

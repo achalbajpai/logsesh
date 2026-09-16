@@ -1,0 +1,4 @@
+{"type":"user","timestamp":"2026-08-06T07:26:50.000Z","cwd":"/tmp/app","message":{"role":"user","content":"open the pr"}}
+{"type":"pr-link","sessionId":"s1","prNumber":24,"prUrl":"https://github.com/example/repo/pull/24","timestamp":"2026-08-06T07:26:54.000Z"}
+{"type":"frame-link","sessionId":"s1","timestamp":"2026-08-06T07:26:55.000Z"}
+{"type":"assistant","timestamp":"2026-08-06T07:26:56.000Z","model":"claude-sonnet-4-6","message":{"id":"msg-1","role":"assistant","content":[{"type":"text","text":"opened"}],"usage":{"input_tokens":3,"output_tokens":2}}}

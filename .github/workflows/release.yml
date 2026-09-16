@@ -37,6 +37,9 @@ jobs:
       - name: Verify
         run: pnpm verify
 
+      - name: Check release tag
+        run: RELEASE_TAG=$GITHUB_REF_NAME pnpm check:release --release "$GITHUB_REF_NAME"
+
       - name: Publish core package
         run: |
           version="${GITHUB_REF_NAME#v}"
@@ -59,12 +62,39 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      - name: Post-publish smoke
+        continue-on-error: true
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          smoke_home="$(mktemp -d)"
+          HOME="$smoke_home" npx --yes "logsesh@${version}" --help
+
       - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             echo "GitHub release $GITHUB_REF_NAME already exists; skipping"
+            exit 0
+          fi
+          version="${GITHUB_REF_NAME#v}"
+          notes_file="$(mktemp)"
+          VERSION="$version" NOTES_FILE="$notes_file" node --input-type=module -e '
+            import { readFileSync, writeFileSync } from "node:fs";
+            const version = process.env.VERSION;
+            const dest = process.env.NOTES_FILE;
+            const lines = readFileSync("CHANGELOG.md", "utf8").split(/\r?\n/);
+            const start = lines.findIndex((line) => line.startsWith("## [" + version + "]"));
+            let notes = "";
+            if (start !== -1) {
+              const rest = lines.slice(start + 1);
+              const end = rest.findIndex((line) => line.startsWith("## "));
+              notes = (end === -1 ? rest : rest.slice(0, end)).join("\n").trim();
+            }
+            writeFileSync(dest, notes);
+          '
+          if [ -s "$notes_file" ]; then
+            gh release create "$GITHUB_REF_NAME" --notes-file "$notes_file"
           else
             gh release create "$GITHUB_REF_NAME" --generate-notes
           fi
-        env:
-          GH_TOKEN: ${{ github.token }}

@@ -13,3 +13,8 @@ execFileSync(process.execPath, [join(ROOT, "scripts/enrich-pricing-provenance.mj
   cwd: ROOT,
   stdio: "inherit",
 });
+
+execFileSync(process.execPath, [join(ROOT, "scripts/check-pricing-age.mjs")], {
+  cwd: ROOT,
+  stdio: "inherit",
+});

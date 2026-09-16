@@ -4,11 +4,11 @@ import {
   generatedAt,
   mergeWarnings,
   parseRedactPatterns,
-  runPipeline,
   searchEnvelopeSchema,
   searchSession,
   toPublicWarnings,
 } from "@logsesh/core";
+import { iterateSessions } from "../util/session-source.js";
 import { printWarningsToStderr } from "../util/format.js";
 import type { SharedCommandOptions } from "../util/options.js";
 import { resolvePipelineOptions } from "../util/pipeline-options.js";
@@ -56,10 +56,14 @@ export async function runSearch(opts: SearchOptions): Promise<number> {
 
   const progress = createScanProgress({ enabled: shouldShowScanProgress(opts) });
   try {
-    for await (const result of runPipeline({
-      ...resolved.pipeline,
-      onFileDiscovered: (n) => progress.update(n),
-    })) {
+    for await (const result of iterateSessions(
+      {
+        ...resolved.pipeline,
+        noIndex: opts.index === false,
+        onFileDiscovered: (n) => progress.update(n),
+      },
+      { forceLive: Boolean(opts.includeReasoning || opts.includeToolOutput) },
+    )) {
       mergeWarnings(warnings, result.warnings);
       if (!result.session) continue;
       const match = searchSession(result.session, opts.searchQuery, {

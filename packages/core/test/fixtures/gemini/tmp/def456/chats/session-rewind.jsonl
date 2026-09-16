@@ -1,0 +1,5 @@
+{"sessionId":"gemini-rewind-1","projectHash":"def456","startTime":"2026-09-01T11:00:00.000Z","kind":"main"}
+{"id":"keep","timestamp":"2026-09-01T11:00:01.000Z","type":"user","content":"first question"}
+{"id":"drop-me","timestamp":"2026-09-01T11:00:02.000Z","type":"gemini","content":"wrong answer"}
+{"$rewindTo":"drop-me"}
+{"id":"after","timestamp":"2026-09-01T11:00:03.000Z","type":"gemini","content":"corrected answer"}

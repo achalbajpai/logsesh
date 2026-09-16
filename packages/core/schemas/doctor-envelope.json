@@ -19,6 +19,7 @@
             "enum": [
               "claude-code",
               "codex",
+              "antigravity",
               "gemini"
             ]
           },
@@ -116,6 +117,36 @@
           },
           "permissionIssue": {
             "type": "string"
+          },
+          "sampleFilesChecked": {
+            "type": "number"
+          },
+          "recordsObserved": {
+            "type": "number"
+          },
+          "recognitionRate": {
+            "type": "number"
+          },
+          "unknownRecordTypes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "malformedRecords": {
+            "type": "number"
+          },
+          "oversizedRecords": {
+            "type": "number"
+          },
+          "formatHealth": {
+            "type": "string",
+            "enum": [
+              "healthy",
+              "partial",
+              "drifted",
+              "unknown"
+            ]
           }
         },
         "required": [
@@ -167,6 +198,9 @@
         },
         "modelCount": {
           "type": "number"
+        },
+        "stale": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -224,7 +258,8 @@
               "parse",
               "export",
               "package",
-              "pricing"
+              "pricing",
+              "index"
             ]
           },
           "sessionId": {

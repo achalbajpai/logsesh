@@ -1,4 +1,5 @@
 import { CodexModelTracker, looksLikeModelId } from "../model-resolution.js";
+import { ParseContext, scanSource } from "../parse-context.js";
 import { SessionBuilder } from "../session-builder.js";
 import { detectRootAccess, walkFiles } from "../fs-walk.js";
 import type {
@@ -8,46 +9,39 @@ import type {
   Session,
   SessionFile,
   ToolName,
-  Usage,
 } from "../types.js";
-import { parseJsonLine, readJsonlLines, sessionFileNameId } from "../util.js";
+import {
+  extractCodexSessionDate,
+  isCodexArchivedPath,
+  parseJsonLine,
+  sessionFileNameId,
+} from "../util.js";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import {
-  codexFunctionCallOutputPayloadSchema,
-  codexFunctionCallPayloadSchema,
+  ADAPTER_VERSIONS,
+  CODEX_ARCHIVE_ROOT_SEGMENTS,
+  CODEX_IGNORED_LINE_TYPES,
+  CODEX_IGNORED_PAYLOAD_TYPES,
+  DEFAULT_LOG_ROOT_SEGMENTS,
+} from "../constants.js";
+import { dispatchCodexPayload, lineageFromCodexMeta, mapCodexUsage } from "./codex-events.js";
+import {
   codexLineSchema,
-  codexMessagePayloadSchema,
   codexSessionMetaPayloadSchema,
   codexTokenCountPayloadSchema,
+  codexTokenUsageRecordPayloadSchema,
   codexTurnContextPayloadSchema,
-  codexWebSearchPayloadSchema,
   parseCodexPayload,
-  requireCallId,
 } from "./codex-schemas.js";
-
-import { ADAPTER_VERSIONS, DEFAULT_LOG_ROOT_SEGMENTS } from "../constants.js";
-
-interface CodexTokenUsage {
-  input_tokens?: number;
-  output_tokens?: number;
-  cached_input_tokens?: number;
-  reasoning_output_tokens?: number;
-  total_tokens?: number;
-}
 
 function codexRoot(opts: DiscoverOptions): string {
   return opts.roots?.codex ?? join(homedir(), ...DEFAULT_LOG_ROOT_SEGMENTS.codex);
 }
 
-function mapCodexUsage(u: CodexTokenUsage): Usage {
-  return {
-    inputTokens: u.input_tokens,
-    outputTokens: u.output_tokens,
-    cacheReadTokens: u.cached_input_tokens,
-    reasoningTokens: u.reasoning_output_tokens,
-    totalTokens: u.total_tokens,
-  };
+function codexArchiveRoot(opts: DiscoverOptions): string | undefined {
+  if (opts.roots?.codex) return undefined;
+  return join(homedir(), ...CODEX_ARCHIVE_ROOT_SEGMENTS);
 }
 
 function codexModelFromMeta(meta: { model?: string; model_provider?: string }): string | undefined {
@@ -56,16 +50,19 @@ function codexModelFromMeta(meta: { model?: string; model_provider?: string }): 
   return undefined;
 }
 
-function messageText(content: unknown): string {
-  if (!Array.isArray(content)) return "";
-  return content
-    .map((part) => {
-      if (!part || typeof part !== "object") return "";
-      const text = (part as { text?: unknown }).text;
-      return typeof text === "string" ? text : "";
-    })
-    .filter(Boolean)
-    .join("\n");
+async function* walkCodexRoot(root: string, opts: DiscoverOptions): AsyncIterable<string> {
+  for await (const path of walkFiles(root, (_full, name, isDirectory) =>
+    isDirectory ? true : name.startsWith("rollout-") && name.endsWith(".jsonl"),
+  )) {
+    if (opts.since || opts.until) {
+      const fileDate = extractCodexSessionDate(path);
+      if (fileDate) {
+        if (opts.since && fileDate < opts.since) continue;
+        if (opts.until && fileDate > opts.until) continue;
+      }
+    }
+    yield path;
+  }
 }
 
 export const codexAdapter: Adapter = {
@@ -82,40 +79,35 @@ export const codexAdapter: Adapter = {
       "Developer and system messages are skipped.",
       "Encrypted reasoning blobs are not exported; summaries are captured when present.",
       "Model is resolved from session_meta and turn_context; bare provider names are ignored.",
+      "Active ~/.codex/sessions and archived_sessions are both discovered. Codex's own SQLite is not read.",
     ],
   },
 
   async detect(): Promise<boolean> {
     const { accessible } = await detectRootAccess(codexRoot({}), "codex");
-    return accessible;
+    if (accessible) return true;
+    const archive = codexArchiveRoot({});
+    if (!archive) return false;
+    const archived = await detectRootAccess(archive, "codex");
+    return archived.accessible;
   },
 
   async *discover(opts: DiscoverOptions): AsyncIterable<SessionFile> {
-    const root = codexRoot(opts);
-    for await (const path of walkFiles(root, (_full, name, isDirectory) =>
-      isDirectory ? true : name.startsWith("rollout-") && name.endsWith(".jsonl"),
-    )) {
-      if (opts.since || opts.until) {
-        const match = path.match(/\/sessions\/(\d{4})\/(\d{2})\/(\d{2})\//);
-        if (match) {
-          const fileDate = new Date(`${match[1]}-${match[2]}-${match[3]}T00:00:00Z`);
-          if (opts.since && fileDate < opts.since) continue;
-          if (opts.until && fileDate > opts.until) continue;
-        }
-      }
+    const seen = new Set<string>();
+    for await (const path of walkCodexRoot(codexRoot(opts), opts)) {
+      seen.add(path);
+      yield { path, tool: "codex" };
+    }
+    const archive = codexArchiveRoot(opts);
+    if (!archive) return;
+    for await (const path of walkCodexRoot(archive, opts)) {
+      if (seen.has(path)) continue;
       yield { path, tool: "codex" };
     }
   },
 
   async *parse(file: SessionFile, opts: ParseOptions): AsyncIterable<Session> {
     let sessionId = sessionFileNameId(file.path);
-    let projectPath: string | undefined;
-    const modelTracker = new CodexModelTracker();
-    let lastTokenUsage: Usage | undefined;
-    let sawTokenCount = false;
-    let sawUsableTokenCount = false;
-    let stepCounter = 0;
-
     const builder = new SessionBuilder({
       tool: "codex",
       adapterVersion: ADAPTER_VERSIONS.codex,
@@ -124,104 +116,163 @@ export const codexAdapter: Adapter = {
       maxTurnChars: opts.maxTurnChars,
       maxToolOutputChars: opts.maxToolOutputChars,
     });
+    builder.setSourceLifecycle(isCodexArchivedPath(file.path) ? "archived" : "active");
 
-    const readResult = await readJsonlLines(
-      file.path,
-      (line, lineNumber) => {
-        const parsed = parseJsonLine(line, lineNumber, file.path);
-        if (!parsed.ok) {
+    const ctx = new ParseContext({ tool: "codex", sourcePath: file.path, sessionId });
+    const modelTracker = new CodexModelTracker();
+    let sawTokenCount = false;
+    let sawUsableTokenCount = false;
+    let stepCounter = 0;
+    const seenOrdinals = new Set<number>();
+    let lastOrdinal: number | undefined;
+
+    await scanSource(file.path, ctx, opts, (line, lineNumber) => {
+      const parsed = parseJsonLine(line, lineNumber, file.path);
+      if (!parsed.ok) {
+        ctx.malformed(parsed.error, lineNumber);
+        return;
+      }
+
+      const lineParsed = codexLineSchema.safeParse(parsed.value);
+      if (!lineParsed.success) {
+        ctx.malformed(`Line ${lineNumber}: invalid Codex record shape`, lineNumber);
+        return;
+      }
+
+      const record = lineParsed.data;
+      if (typeof record.ordinal === "number") {
+        if (seenOrdinals.has(record.ordinal)) {
           builder.addWarning({
-            code: "malformed_line",
-            message: parsed.error,
-            severity: "warn",
+            code: "duplicate_event_ordinal",
+            message: `codex: duplicate event ordinal ${record.ordinal}; source order preserved`,
+            severity: "info",
             scope: "parse",
             sourcePath: file.path,
             sessionId,
             line: lineNumber,
           });
-          return;
-        }
-
-        const lineParsed = codexLineSchema.safeParse(parsed.value);
-        if (!lineParsed.success) {
+        } else if (lastOrdinal !== undefined && record.ordinal > lastOrdinal + 1) {
           builder.addWarning({
-            code: "invalid_line_shape",
-            message: `Line ${lineNumber}: invalid Codex record shape`,
-            severity: "warn",
+            code: "duplicate_event_ordinal",
+            message: `codex: ordinal gap ${lastOrdinal} -> ${record.ordinal}; source order preserved`,
+            severity: "info",
             scope: "parse",
             sourcePath: file.path,
             sessionId,
             line: lineNumber,
           });
-          return;
         }
+        seenOrdinals.add(record.ordinal);
+        lastOrdinal = record.ordinal;
+      }
 
-        const record = lineParsed.data;
-        const lineType = record.type;
-        const payload = record.payload;
-        if (!payload) return;
+      const lineType = record.type;
+      const payload = record.payload;
 
-        if (lineType === "session_meta") {
-          const meta = parseCodexPayload(codexSessionMetaPayloadSchema, payload);
-          if (!meta) return;
-          if (meta.id) sessionId = meta.id;
-          if (meta.cwd) projectPath = meta.cwd;
-          modelTracker.observe(codexModelFromMeta(meta));
-          return;
+      if (CODEX_IGNORED_LINE_TYPES.has(lineType)) {
+        ctx.ignoredKnown(lineType);
+        return;
+      }
+
+      if (lineType === "session_meta") {
+        ctx.recognized(lineType);
+        const meta = parseCodexPayload(codexSessionMetaPayloadSchema, payload);
+        if (!meta) return;
+        if (meta.id) {
+          sessionId = meta.id;
+          builder.setSessionId(sessionId);
+          ctx.setSessionId(sessionId);
         }
+        if (meta.cwd) builder.setProjectPath(meta.cwd);
+        modelTracker.observe(codexModelFromMeta(meta));
+        const lineage = lineageFromCodexMeta(meta);
+        if (lineage) builder.setLineage(lineage);
+        return;
+      }
 
-        if (lineType === "turn_context") {
-          const ctx = parseCodexPayload(codexTurnContextPayloadSchema, payload);
-          if (ctx?.model) modelTracker.observe(ctx.model);
-          return;
+      if (lineType === "turn_context") {
+        ctx.recognized(lineType);
+        const turn = parseCodexPayload(codexTurnContextPayloadSchema, payload);
+        if (turn?.model) modelTracker.observe(turn.model);
+        return;
+      }
+
+      if (lineType === "token_usage_record") {
+        ctx.recognized(lineType);
+        sawTokenCount = true;
+        const usagePayload = parseCodexPayload(codexTokenUsageRecordPayloadSchema, payload);
+        const usage = usagePayload?.usage ?? usagePayload;
+        if (usage && (usage.total_tokens !== undefined || usage.input_tokens !== undefined)) {
+          sawUsableTokenCount = true;
+          builder.observeUsage({ mode: "cumulative", usage: mapCodexUsage(usage) });
         }
+        return;
+      }
 
-        if (lineType === "event_msg") {
-          const tokenEvent = parseCodexPayload(codexTokenCountPayloadSchema, payload);
-          if (!tokenEvent) return;
+      if (lineType === "event_msg") {
+        const tokenEvent = parseCodexPayload(codexTokenCountPayloadSchema, payload);
+        if (tokenEvent) {
+          ctx.recognized(lineType);
           sawTokenCount = true;
           const total = tokenEvent.info?.total_token_usage;
           if (total) {
             sawUsableTokenCount = true;
-            lastTokenUsage = mapCodexUsage(total);
+            builder.observeUsage({ mode: "cumulative", usage: mapCodexUsage(total) });
           }
           return;
         }
+        const payloadType = typeof payload?.type === "string" ? payload.type : undefined;
+        if (payloadType && CODEX_IGNORED_PAYLOAD_TYPES.has(payloadType)) {
+          ctx.ignoredKnown(payloadType);
+          return;
+        }
+        if (payloadType) ctx.unknown(payloadType);
+        else ctx.ignoredKnown(lineType);
+        return;
+      }
 
-        if (lineType !== "response_item") return;
+      if (lineType !== "response_item") {
+        ctx.unknown(lineType);
+        return;
+      }
 
-        const message = parseCodexPayload(codexMessagePayloadSchema, payload);
-        if (message) {
-          if (message.role === "developer" || message.role === "system") {
-            builder.addWarning({
-              code: "skipped_role",
-              message: `Skipped ${message.role} message`,
-              severity: "info",
-              scope: "parse",
-              sourcePath: file.path,
-              sessionId,
-              line: lineNumber,
-            });
-            return;
-          }
-          if (message.role !== "user" && message.role !== "assistant") return;
-
-          const text = messageText(message.content);
-          if (!text) return;
-
+      const dispatched = dispatchCodexPayload(payload, lineNumber);
+      switch (dispatched.kind) {
+        case "skip":
+          ctx.ignoredKnown(lineType);
+          return;
+        case "ignored":
+          ctx.ignoredKnown(dispatched.type);
+          return;
+        case "unknown":
+          ctx.unknown(dispatched.type);
+          return;
+        case "skipped_role":
+          ctx.recognized("message");
+          builder.addWarning({
+            code: "skipped_role",
+            message: `Skipped ${dispatched.role} message`,
+            severity: "info",
+            scope: "parse",
+            sourcePath: file.path,
+            sessionId,
+            line: lineNumber,
+          });
+          return;
+        case "message":
+          ctx.recognized("message");
           stepCounter++;
           builder.addRecord({
-            role: message.role,
-            fragmentGroupId: `${message.role}-step-${stepCounter}`,
+            role: dispatched.role,
+            fragmentGroupId: `${dispatched.role}-step-${stepCounter}`,
             sourceLine: lineNumber,
-            blocks: [{ kind: "text", text }],
+            blocks: [{ kind: "text", text: dispatched.text }],
             timestamp: record.timestamp,
           });
           return;
-        }
-
-        if (payload.type === "reasoning") {
-          if (payload.encrypted_content) {
+        case "reasoning":
+          ctx.recognized("reasoning");
+          if (dispatched.encrypted) {
             builder.addWarning({
               code: "dropped_encrypted_reasoning",
               message: "Dropped encrypted reasoning blob",
@@ -232,88 +283,46 @@ export const codexAdapter: Adapter = {
               line: lineNumber,
             });
           }
-          const summary =
-            typeof payload.summary === "string" ? payload.summary : messageText(payload.content);
-          if (summary) {
+          if (dispatched.summary) {
             stepCounter++;
             builder.addRecord({
               role: "assistant",
               fragmentGroupId: `reasoning-${stepCounter}`,
               sourceLine: lineNumber,
-              blocks: [{ kind: "thinking", text: summary }],
+              blocks: [{ kind: "thinking", text: dispatched.summary }],
               timestamp: record.timestamp,
             });
           }
           return;
-        }
-
-        const functionCall = parseCodexPayload(codexFunctionCallPayloadSchema, payload);
-        if (functionCall) {
-          const callId = requireCallId(functionCall.call_id ?? functionCall.id);
-          if (!callId) return;
+        case "tool_call":
+          ctx.recognized("function_call");
           stepCounter++;
           builder.addRecord({
             role: "assistant",
-            fragmentGroupId: `call-${callId}`,
+            fragmentGroupId: `call-${dispatched.id}`,
             sourceLine: lineNumber,
             blocks: [
               {
                 kind: "tool_use",
-                id: callId,
-                name: typeof functionCall.name === "string" ? functionCall.name : "unknown",
-                input: functionCall.arguments ?? functionCall.input,
+                id: dispatched.id,
+                name: dispatched.name,
+                input: dispatched.input,
               },
             ],
             timestamp: record.timestamp,
           });
           return;
-        }
-
-        const functionOutput = parseCodexPayload(codexFunctionCallOutputPayloadSchema, payload);
-        if (functionOutput) {
+        case "tool_result":
+          ctx.recognized("function_call_output");
           builder.addToolResult({
-            toolUseId: functionOutput.call_id,
+            toolUseId: dispatched.id,
             sourceLine: lineNumber,
-            output: functionOutput.output,
-            status: functionOutput.is_error ? "error" : "success",
+            output: dispatched.output,
+            status: dispatched.error ? "error" : "success",
           });
           return;
-        }
-
-        const webSearch = parseCodexPayload(codexWebSearchPayloadSchema, payload);
-        if (webSearch) {
-          const callId = requireCallId(webSearch.call_id, `web-${lineNumber}`);
-          if (!callId) return;
-          stepCounter++;
-          builder.addRecord({
-            role: "assistant",
-            fragmentGroupId: `call-${callId}`,
-            sourceLine: lineNumber,
-            blocks: [
-              {
-                kind: "tool_use",
-                id: callId,
-                name: "web_search",
-                input: payload,
-              },
-            ],
-            timestamp: record.timestamp,
-          });
-        }
-      },
-      { maxFileBytes: opts.maxFileBytes },
-    );
-
-    if (readResult.skipped) {
-      builder.addWarning({
-        code: "file_too_large",
-        message: `File exceeds max size (${readResult.size} bytes), skipped`,
-        severity: "warn",
-        scope: "parse",
-        sourcePath: file.path,
-        sessionId,
-      });
-    }
+      }
+    });
 
     if (sawTokenCount && !sawUsableTokenCount) {
       builder.addWarning({
@@ -326,11 +335,13 @@ export const codexAdapter: Adapter = {
       });
     }
 
-    const session = builder.finalize();
-    session.id = sessionId;
-    session.projectPath = projectPath;
-    session.model = modelTracker.resolve();
-    if (lastTokenUsage) session.usage = lastTokenUsage;
-    yield session;
+    builder.setModel(modelTracker.resolve());
+    for (const warning of ctx.drainWarnings()) builder.addWarning(warning);
+    builder.setFidelity(ctx.finalize());
+    yield builder.finalize();
   },
 };
+
+export function getCodexArchiveRoot(opts: DiscoverOptions = {}): string | undefined {
+  return codexArchiveRoot(opts);
+}

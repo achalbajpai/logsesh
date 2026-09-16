@@ -8,6 +8,7 @@ import { z } from "zod";
 import { runDebug } from "./commands/debug.js";
 import { runDoctorCommand } from "./commands/doctor.js";
 import { runExport } from "./commands/export.js";
+import { runIndexCommand } from "./commands/index.js";
 import { runList } from "./commands/list.js";
 import { runSearch } from "./commands/search.js";
 import { runStats } from "./commands/stats.js";
@@ -68,6 +69,35 @@ async function main(): Promise<void> {
       process.exit(await runStats(opts));
     },
   );
+
+  const index = program.command("index").description("Manage the optional local SQLite index");
+  sharedOptions(
+    index
+      .command("build")
+      .description("Build or refresh the local index")
+      .option("--rebuild", "Rebuild from scratch"),
+  ).action(async (opts) => {
+    process.exit(await runIndexCommand("build", opts));
+  });
+  index
+    .command("status")
+    .description("Show index health")
+    .option("--json", "Machine-readable JSON output")
+    .action(async (opts) => {
+      process.exit(await runIndexCommand("status", opts));
+    });
+  index
+    .command("clear")
+    .description("Delete the local index")
+    .action(async () => {
+      process.exit(await runIndexCommand("clear", {}));
+    });
+  index
+    .command("path")
+    .description("Print the index database path")
+    .action(async () => {
+      process.exit(await runIndexCommand("path", {}));
+    });
 
   sharedOptions(
     program

@@ -40,7 +40,7 @@ const warningSchema = z.object({
   code: z.string(),
   message: z.string(),
   severity: z.enum(["info", "warn", "error"]),
-  scope: z.enum(["discovery", "parse", "export", "package", "pricing"]),
+  scope: z.enum(["discovery", "parse", "export", "package", "pricing", "index"]),
   sourcePath: z.string().optional(),
   sessionId: z.string().optional(),
   line: z.number().optional(),
@@ -48,6 +48,26 @@ const warningSchema = z.object({
 });
 
 const publicWarningSchema = warningSchema.omit({ sourcePath: true });
+
+const lineageSchema = z.object({
+  parentSessionId: z.string().optional(),
+  agentId: z.string().optional(),
+  agentType: z.string().optional(),
+  originator: z.string().optional(),
+  depth: z.number().optional(),
+});
+
+const fidelitySchema = z.object({
+  completeness: z.enum(["complete", "partial", "metadata-only"]),
+  reason: z.string().optional(),
+  recordsObserved: z.number().optional(),
+  recordsRecognized: z.number().optional(),
+  recordsIgnored: z.number().optional(),
+  recordsUnknown: z.number().optional(),
+  recordsMalformed: z.number().optional(),
+  recordsOversized: z.number().optional(),
+  unknownRecordTypes: z.array(z.string()).optional(),
+});
 
 const usageSchema = z.object({
   inputTokens: z.number().optional(),
@@ -88,6 +108,7 @@ export const sessionSchema = z.object({
     adapterVersion: z.string(),
     logFormatVersion: z.union([z.string(), z.literal("unknown")]).optional(),
     sourcePath: z.string(),
+    lifecycle: z.enum(["active", "archived"]).optional(),
   }),
   tool: toolNameSchema,
   startedAt: z.string().optional(),
@@ -118,6 +139,9 @@ export const sessionSchema = z.object({
     }),
   ),
   warnings: z.array(warningSchema).optional(),
+  lineage: lineageSchema.optional(),
+  branch: z.string().optional(),
+  fidelity: fidelitySchema.optional(),
 });
 
 const publicContentBlockSchema = z.discriminatedUnion("kind", [
@@ -168,6 +192,7 @@ export const publicSessionSchema = z.object({
     tool: toolNameSchema,
     adapterVersion: z.string(),
     logFormatVersion: z.union([z.string(), z.literal("unknown")]).optional(),
+    lifecycle: z.enum(["active", "archived"]).optional(),
   }),
   tool: toolNameSchema,
   startedAt: z.string().optional(),
@@ -179,6 +204,9 @@ export const publicSessionSchema = z.object({
   estimate: estimateSchema.optional(),
   turns: z.array(publicTurnSchema),
   warnings: z.array(publicWarningSchema).optional(),
+  lineage: lineageSchema.optional(),
+  branch: z.string().optional(),
+  fidelity: fidelitySchema.optional(),
 });
 
 const sessionSummarySchema = z.object({
@@ -192,6 +220,9 @@ const sessionSummarySchema = z.object({
   costUsd: z.number().nullable(),
   estimate: estimateSchema.optional(),
   sourcePath: z.string(),
+  agentId: z.string().optional(),
+  parentSessionId: z.string().optional(),
+  completeness: z.enum(["complete", "partial", "metadata-only"]).optional(),
 });
 
 export const listEnvelopeSchema = z.object({
@@ -208,6 +239,9 @@ const searchMatchSchema = z.object({
   timestamp: z.string().optional(),
   snippets: z.array(z.string()),
   totalHits: z.number(),
+  agentId: z.string().optional(),
+  parentSessionId: z.string().optional(),
+  completeness: z.enum(["complete", "partial", "metadata-only"]).optional(),
 });
 
 export const searchEnvelopeSchema = z.object({
@@ -251,11 +285,17 @@ const statsReportSchema = z.object({
     z.string(),
     z.object({ sessions: z.number(), turns: z.number(), tokens: z.number() }),
   ),
+  byModel: z
+    .record(z.string(), z.object({ sessions: z.number(), turns: z.number(), tokens: z.number() }))
+    .optional(),
   mostActiveDays: z.array(z.object({ date: z.string(), sessions: z.number(), turns: z.number() })),
   dailyBurn: z.array(
     z.object({ date: z.string(), sessions: z.number(), turns: z.number(), tokens: z.number() }),
   ),
   tokenBreakdown: tokenBreakdownSchema,
+  parentSessionCount: z.number().optional(),
+  subagentSessionCount: z.number().optional(),
+  partialSessionCount: z.number().optional(),
 });
 
 export const statsEnvelopeSchema = z.object({
@@ -311,6 +351,13 @@ export const doctorEnvelopeSchema = z.object({
       adapterVersion: z.string(),
       capabilities: adapterCapabilitiesSchema,
       permissionIssue: z.string().optional(),
+      sampleFilesChecked: z.number().optional(),
+      recordsObserved: z.number().optional(),
+      recognitionRate: z.number().optional(),
+      unknownRecordTypes: z.array(z.string()).optional(),
+      malformedRecords: z.number().optional(),
+      oversizedRecords: z.number().optional(),
+      formatHealth: z.enum(["healthy", "partial", "drifted", "unknown"]).optional(),
     }),
   ),
   pricing: z.object({
@@ -325,6 +372,7 @@ export const doctorEnvelopeSchema = z.object({
       }),
     ),
     modelCount: z.number(),
+    stale: z.boolean().optional(),
   }),
   exportDefaults: z.object({
     transcriptRedactDefault: z.boolean(),

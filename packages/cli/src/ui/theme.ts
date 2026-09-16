@@ -7,6 +7,7 @@ export type Theme = ReturnType<typeof createTheme>;
 const TOOL_COLOR: Record<ToolName, (text: string) => string> = {
   "claude-code": pc.magenta,
   codex: pc.blue,
+  antigravity: pc.green,
   gemini: pc.green,
 };
 

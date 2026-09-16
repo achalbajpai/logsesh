@@ -105,6 +105,32 @@
             "additionalProperties": false
           }
         },
+        "byModel": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "sessions": {
+                "type": "number"
+              },
+              "turns": {
+                "type": "number"
+              },
+              "tokens": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "sessions",
+              "turns",
+              "tokens"
+            ],
+            "additionalProperties": false
+          }
+        },
         "mostActiveDays": {
           "type": "array",
           "items": {
@@ -215,6 +241,15 @@
             "observedSessionCount"
           ],
           "additionalProperties": false
+        },
+        "parentSessionCount": {
+          "type": "number"
+        },
+        "subagentSessionCount": {
+          "type": "number"
+        },
+        "partialSessionCount": {
+          "type": "number"
         }
       },
       "required": [
@@ -261,7 +296,8 @@
               "parse",
               "export",
               "package",
-              "pricing"
+              "pricing",
+              "index"
             ]
           },
           "sessionId": {

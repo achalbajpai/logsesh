@@ -95,7 +95,8 @@ Summary-only CSV keeps the same path anonymization defaults. Pass `--redact` to 
 | --- | --- |
 | Claude Code | `~/.claude/projects/*/*.jsonl` |
 | Codex | `~/.codex/sessions/**/rollout-*.jsonl` |
-| Gemini CLI | experimental adapter |
+| Antigravity CLI | `~/.gemini/antigravity-cli` conversations and transcripts; other ACP stores via `--roots antigravity:<path>` |
+| Gemini CLI (legacy) | `~/.gemini/tmp/*/chats/session-*.jsonl` |
 
 Override discovery with `--roots tool:path` and repeat it for multiple roots.
 

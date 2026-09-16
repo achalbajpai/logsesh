@@ -1,0 +1,4 @@
+{"sessionId":"gemini-update-1","projectHash":"upd","startTime":"2026-09-01T12:00:00.000Z","kind":"main"}
+{"id":"m1","timestamp":"2026-09-01T12:00:01.000Z","type":"user","content":"old prompt"}
+{"id":"m1","timestamp":"2026-09-01T12:00:02.000Z","type":"user","content":"updated prompt"}
+{"id":"m2","timestamp":"2026-09-01T12:00:03.000Z","type":"gemini","content":"ok"}

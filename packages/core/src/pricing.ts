@@ -49,12 +49,12 @@ export const PRICING_MODEL_COUNT = DATA.models.length;
 export const PRICING_SOURCES = [
   ...new Map(
     [
-      ...DATA.sources,
       ...DATA.models.map((row) => ({
         provider: row.provider,
         url: row.sourceUrl,
         asOf: row.verifiedAt,
       })),
+      ...DATA.sources,
     ].map((source) => [`${source.provider}:${source.url}`, source]),
   ).values(),
 ];

@@ -1,16 +1,21 @@
 import type {
   AddRecordInput,
   AddToolResultInput,
+  AgentLineage,
   ContentBlock,
   InputContentBlock,
   Session,
   SessionBuilderOptions,
+  Source,
+  SourceFidelity,
   ToolCall,
   Turn,
   Usage,
+  UsageObservation,
   Warning,
 } from "./types.js";
 import { LOG_FORMAT_VERSION_UNKNOWN, SESSION_SCHEMA_VERSION } from "./constants.js";
+import { elideBinaryText } from "./util.js";
 
 interface FragmentEntry {
   sourceLine: number;
@@ -130,16 +135,91 @@ export class SessionBuilder {
   private timestamps: string[] = [];
   private turnCounter = 0;
   private finalizedSession: Session | null = null;
+  private sessionId: string;
+  private projectPath?: string;
+  private model?: string;
+  private logFormatVersion?: string;
+  private lineage?: AgentLineage;
+  private branch?: string;
+  private fidelity?: SourceFidelity;
+  private sourceLifecycle?: Source["lifecycle"];
+  private cumulativeUsage?: Usage;
+  private deltaUsage?: Usage;
 
   constructor(opts: SessionBuilderOptions) {
     this.opts = opts;
+    this.sessionId = opts.sessionId;
+    this.projectPath = opts.projectPath;
+    this.model = opts.model;
+    this.logFormatVersion = opts.logFormatVersion;
+    this.lineage = opts.lineage;
+    this.branch = opts.branch;
+    this.fidelity = opts.fidelity;
+    this.sourceLifecycle = opts.sourceLifecycle;
+  }
+
+  private assertMutable(): void {
+    if (this.finalizedSession) {
+      throw new Error("SessionBuilder is finalized");
+    }
   }
 
   addWarning(warning: Warning): void {
+    this.assertMutable();
     this.warnings.push(warning);
   }
 
+  setSessionId(sessionId: string): void {
+    this.assertMutable();
+    this.sessionId = sessionId;
+  }
+
+  setProjectPath(projectPath: string | undefined): void {
+    this.assertMutable();
+    this.projectPath = projectPath;
+  }
+
+  setModel(model: string | undefined): void {
+    this.assertMutable();
+    this.model = model;
+  }
+
+  setLogFormatVersion(version: string | undefined): void {
+    this.assertMutable();
+    this.logFormatVersion = version;
+  }
+
+  setLineage(lineage: AgentLineage | undefined): void {
+    this.assertMutable();
+    this.lineage = lineage;
+  }
+
+  setBranch(branch: string | undefined): void {
+    this.assertMutable();
+    this.branch = branch;
+  }
+
+  setFidelity(fidelity: SourceFidelity | undefined): void {
+    this.assertMutable();
+    this.fidelity = fidelity;
+  }
+
+  setSourceLifecycle(lifecycle: Source["lifecycle"] | undefined): void {
+    this.assertMutable();
+    this.sourceLifecycle = lifecycle;
+  }
+
+  observeUsage(observation: UsageObservation): void {
+    this.assertMutable();
+    if (observation.mode === "cumulative") {
+      this.cumulativeUsage = { ...observation.usage };
+      return;
+    }
+    this.deltaUsage = mergeUsage(this.deltaUsage, observation.usage);
+  }
+
   addRecord(input: AddRecordInput): void {
+    this.assertMutable();
     if (input.timestamp) this.timestamps.push(input.timestamp);
 
     if (input.role === "assistant" && input.fragmentGroupId) {
@@ -170,6 +250,7 @@ export class SessionBuilder {
   }
 
   addToolResult(input: AddToolResultInput): void {
+    this.assertMutable();
     const maxOut = this.opts.maxToolOutputChars ?? 50_000;
     const { value: output, truncated } = boundToolOutput(input.output, maxOut);
     if (truncated) {
@@ -179,7 +260,7 @@ export class SessionBuilder {
         severity: "warn",
         scope: "parse",
         sourcePath: this.opts.sourcePath,
-        sessionId: this.opts.sessionId,
+        sessionId: this.sessionId,
         line: input.sourceLine,
       });
     }
@@ -195,7 +276,7 @@ export class SessionBuilder {
         severity: "warn",
         scope: "parse",
         sourcePath: this.opts.sourcePath,
-        sessionId: this.opts.sessionId,
+        sessionId: this.sessionId,
         line: input.sourceLine,
       });
     }
@@ -248,28 +329,33 @@ export class SessionBuilder {
 
     this.finalizedSession = {
       schemaVersion: SESSION_SCHEMA_VERSION,
-      id: this.opts.sessionId,
+      id: this.sessionId,
       source: {
         tool: this.opts.tool,
         adapterVersion: this.opts.adapterVersion,
-        logFormatVersion: this.opts.logFormatVersion ?? LOG_FORMAT_VERSION_UNKNOWN,
+        logFormatVersion: this.logFormatVersion ?? LOG_FORMAT_VERSION_UNKNOWN,
         sourcePath: this.opts.sourcePath,
+        ...(this.sourceLifecycle ? { lifecycle: this.sourceLifecycle } : {}),
       },
       tool: this.opts.tool,
       startedAt: sortedTs[0],
       endedAt: sortedTs[sortedTs.length - 1],
-      projectPath: this.opts.projectPath,
-      model: this.opts.model,
+      projectPath: this.projectPath,
+      model: this.model,
       usage,
       costUsd: null,
       turns,
       warnings: this.warnings.length > 0 ? [...this.warnings] : undefined,
+      ...(this.lineage ? { lineage: this.lineage } : {}),
+      ...(this.branch ? { branch: this.branch } : {}),
+      ...(this.fidelity ? { fidelity: this.fidelity } : {}),
     };
     return this.finalizedSession;
   }
 
   private computeSessionUsage(): Usage | undefined {
-    const usages = [...this.fragmentUsage.values()];
+    if (this.cumulativeUsage) return { ...this.cumulativeUsage };
+    const usages = [...this.fragmentUsage.values(), ...(this.deltaUsage ? [this.deltaUsage] : [])];
     if (usages.length === 0) return undefined;
     return usages.reduce<Usage | undefined>((acc, u) => mergeUsage(acc, u), undefined);
   }
@@ -312,6 +398,13 @@ export class SessionBuilder {
 
     for (const block of input.blocks) {
       if (block.kind === "text" || block.kind === "thinking") {
+        if (block.kind === "text") {
+          const elided = elideBinaryText(block.text);
+          if (elided.kind === "image") {
+            content.push(elided);
+            continue;
+          }
+        }
         const { text, truncated } = truncateText(block.text, maxTurn);
         if (truncated) {
           this.addWarning({
@@ -320,7 +413,7 @@ export class SessionBuilder {
             severity: "warn",
             scope: "parse",
             sourcePath: this.opts.sourcePath,
-            sessionId: this.opts.sessionId,
+            sessionId: this.sessionId,
             line: input.sourceLine,
           });
         }

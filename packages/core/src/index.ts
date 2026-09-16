@@ -19,6 +19,8 @@ export {
   JSONL_RECORD_FORMAT,
   DOCTOR_ENVELOPE_FORMAT,
   TOOL_NAMES,
+  INDEX_DIR_MODE,
+  INDEX_FILE_MODE,
 } from "./constants.js";
 export type {
   ContentBlock,
@@ -36,11 +38,14 @@ export type {
   ToolCall,
   Turn,
   Usage,
+  UsageObservation,
   Estimate,
   PricingProvenance,
   Warning,
   Source,
   Session,
+  AgentLineage,
+  SourceFidelity,
   JsonExportEnvelope,
   JsonlRecord,
   SessionSummary,
@@ -54,6 +59,7 @@ export type {
   DebugEnvelope,
   SessionFile,
   ParseOptions,
+  LargeFileMode,
   DiscoverOptions,
   PipelineOptions,
   SanitizeOptions,
@@ -64,6 +70,8 @@ export type {
   SessionBuilderOptions,
 } from "./types.js";
 export { SessionBuilder } from "./session-builder.js";
+export { ParseContext, scanSource } from "./parse-context.js";
+export { readJsonl, planJsonlScan } from "./jsonl-reader.js";
 export {
   discover,
   discoverFiles,
@@ -72,18 +80,29 @@ export {
   matchesTool,
   matchesDateRange,
   matchesSessionQuery,
+  matchesSessionFilters,
+  matchesSessionTextQuery,
 } from "./discovery.js";
 export { runPipeline, parseFile, toPublicWarnings } from "./pipeline.js";
+export type { PipelineResult } from "./pipeline.js";
 export { inferToolFromPath, resolveDebugTool, sniffToolFromLogLine } from "./infer-tool.js";
 export { mergeWarnings, summarizeWarnings } from "./warnings.js";
 export type { SummarizedWarning } from "./warnings.js";
 export { sessionToSummary } from "./filters.js";
-export { parseQuery, matchesQuery } from "./query.js";
+export { parseQuery, matchesQuery, parseToolField } from "./query.js";
 export { searchSession, parseSearchQuery } from "./search.js";
 export { StatsAggregator } from "./stats.js";
 export { redactText, redactUnknown, parseRedactPatterns, getBuiltinPatterns } from "./redact.js";
 export { escapeCsvCell, neutralizeMarkdown, writeExportFile } from "./export-safety.js";
-export { anonymizePath, anonymizePathsInText } from "./util.js";
+export {
+  anonymizePath,
+  anonymizePathsInText,
+  claudeProjectSlugFromPath,
+  claudeSubagentFromPath,
+  extractCodexSessionDate,
+  sessionFileNameId,
+  toPosixPath,
+} from "./util.js";
 export { sanitizeForExport } from "./sanitize.js";
 export {
   estimateSessionCost,
@@ -112,7 +131,10 @@ export {
   getAllAdapters,
   getEnabledAdapters,
   getAdapterRoot,
+  getCodexArchiveRoot,
+  getAntigravityHomes,
   parseRootsOverride,
+  antigravityAdapter,
   claudeCodeAdapter,
   codexAdapter,
   geminiAdapter,
