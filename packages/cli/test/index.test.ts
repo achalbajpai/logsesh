@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { copyFile, mkdir, mkdtemp, rm } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, readFile, rm, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,7 +13,37 @@ import { iterateSessions } from "../src/util/session-source.js";
 const root = join(fileURLToPath(new URL("../../..", import.meta.url)));
 const claudeRoot = join(root, "packages/core/test/fixtures/claude");
 
-describe("local index", () => {
+async function isolatedRoots(dir: string, claudeLogs: string) {
+  const empty = {
+    codex: join(dir, "empty-codex"),
+    gemini: join(dir, "empty-gemini"),
+    antigravity: join(dir, "empty-antigravity"),
+  };
+  await mkdir(empty.codex, { recursive: true });
+  await mkdir(empty.gemini, { recursive: true });
+  await mkdir(empty.antigravity, { recursive: true });
+  return {
+    "claude-code": claudeLogs,
+    ...empty,
+  };
+}
+
+async function countFtsRows(path: string): Promise<number | undefined> {
+  const runtime = await loadSqliteRuntime();
+  if (!runtime?.fts) return undefined;
+  const db = runtime.open(path);
+  try {
+    const row = db.prepare("SELECT COUNT(*) AS n FROM transcript_fts").get();
+    if (!row || typeof row !== "object" || !("n" in row)) return undefined;
+    return typeof row.n === "number" ? row.n : Number(row.n);
+  } catch {
+    return undefined;
+  } finally {
+    db.close();
+  }
+}
+
+describe("local index", { timeout: 20_000 }, () => {
   let dbPath = "";
 
   afterEach(async () => {
@@ -158,5 +188,139 @@ describe("local index", () => {
       if (result.session) live.push(result.session.id);
     }
     expect(live).toHaveLength(1);
+  });
+
+  it("prunes vanished sources when Commander supplies an empty project filter", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "logsesh-index-prune-"));
+    dbPath = join(dir, "index-v1.sqlite");
+    const logs = join(dir, "logs");
+    await mkdir(logs, { recursive: true });
+    await copyFile(join(claudeRoot, "fragment-merge.jsonl"), join(logs, "keep.jsonl"));
+    await copyFile(join(claudeRoot, "unmatched-result.jsonl"), join(logs, "gone.jsonl"));
+    const roots = await isolatedRoots(dir, logs);
+
+    const built = await buildIndex({
+      roots,
+      projectFilter: [],
+      indexPath: dbPath,
+    });
+    expect(built.ok).toBe(true);
+    expect(built.sources).toBe(2);
+
+    await unlink(join(logs, "gone.jsonl"));
+
+    const stale = await queryIndex({
+      roots,
+      projectFilter: [],
+      indexPath: dbPath,
+    });
+    expect(stale?.stale).toBe(true);
+
+    const refreshed = await buildIndex({
+      roots,
+      projectFilter: [],
+      indexPath: dbPath,
+    });
+    expect(refreshed.ok).toBe(true);
+    expect(refreshed.sources).toBe(1);
+
+    const after = await queryIndex({
+      roots,
+      projectFilter: [],
+      indexPath: dbPath,
+    });
+    expect(after?.stale).toBe(false);
+    expect(after?.sessions).toHaveLength(1);
+  });
+
+  it("does not accumulate FTS rows when a changed session is refreshed", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "logsesh-index-fts-"));
+    dbPath = join(dir, "index-v1.sqlite");
+    const logs = join(dir, "logs");
+    await mkdir(logs, { recursive: true });
+    await copyFile(join(claudeRoot, "fragment-merge.jsonl"), join(logs, "one.jsonl"));
+
+    const built = await buildIndex({
+      roots: { "claude-code": logs },
+      toolFilter: ["claude-code"],
+      indexPath: dbPath,
+    });
+    expect(built.ok).toBe(true);
+    expect(built.fts).toBe(true);
+
+    const before = await countFtsRows(dbPath);
+    expect(before).toBe(1);
+
+    const source = join(logs, "one.jsonl");
+    const original = await readFile(source, "utf8");
+    await writeFile(source, original.replace("Hello", "Hello again"));
+    const firstRefresh = await buildIndex({
+      roots: { "claude-code": logs },
+      toolFilter: ["claude-code"],
+      indexPath: dbPath,
+    });
+    expect(firstRefresh.ok).toBe(true);
+    expect(firstRefresh.skippedUnchanged).toBe(0);
+
+    await writeFile(source, original.replace("Hello", "Hello once more"));
+    const secondRefresh = await buildIndex({
+      roots: { "claude-code": logs },
+      toolFilter: ["claude-code"],
+      indexPath: dbPath,
+    });
+    expect(secondRefresh.ok).toBe(true);
+    expect(secondRefresh.skippedUnchanged).toBe(0);
+
+    const after = await countFtsRows(dbPath);
+    expect(after).toBe(1);
+  });
+
+  it("returns parse warnings from indexed sessions", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "logsesh-index-warn-"));
+    dbPath = join(dir, "index-v1.sqlite");
+    const logs = join(dir, "logs");
+    await mkdir(logs, { recursive: true });
+    await copyFile(join(claudeRoot, "malformed.jsonl"), join(logs, "malformed.jsonl"));
+
+    const liveCodes: string[] = [];
+    for await (const result of runPipeline({
+      roots: { "claude-code": logs },
+      toolFilter: ["claude-code"],
+    })) {
+      for (const warning of result.warnings) liveCodes.push(warning.code);
+      for (const warning of result.session?.warnings ?? []) liveCodes.push(warning.code);
+    }
+    expect(liveCodes).toContain("malformed_record");
+
+    const built = await buildIndex({
+      roots: { "claude-code": logs },
+      toolFilter: ["claude-code"],
+      indexPath: dbPath,
+    });
+    expect(built.ok).toBe(true);
+
+    const indexed = await queryIndex({
+      roots: { "claude-code": logs },
+      toolFilter: ["claude-code"],
+      indexPath: dbPath,
+    });
+    expect(indexed?.stale).toBe(false);
+    expect(indexed?.sessions).toHaveLength(1);
+    const indexedCodes = [
+      ...(indexed?.sessions[0]?.warnings ?? []).map((warning) => warning.code),
+      ...(indexed?.sessions[0]?.session.warnings ?? []).map((warning) => warning.code),
+    ];
+    expect(indexedCodes).toContain("malformed_record");
+
+    const fromIndex: string[] = [];
+    for await (const result of iterateSessions({
+      roots: { "claude-code": logs },
+      toolFilter: ["claude-code"],
+      indexPath: dbPath,
+    })) {
+      expect(result.warnings.some((warning) => warning.code === "index_stale")).toBe(false);
+      for (const warning of result.warnings) fromIndex.push(warning.code);
+    }
+    expect(fromIndex).toContain("malformed_record");
   });
 });

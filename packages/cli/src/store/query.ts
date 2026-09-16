@@ -23,6 +23,62 @@ export interface IndexedSessionResult {
   warnings: Warning[];
 }
 
+function isWarningSeverity(value: unknown): value is Warning["severity"] {
+  return value === "info" || value === "warn" || value === "error";
+}
+
+function isWarningScope(value: unknown): value is Warning["scope"] {
+  return (
+    value === "discovery" ||
+    value === "parse" ||
+    value === "export" ||
+    value === "package" ||
+    value === "pricing" ||
+    value === "index"
+  );
+}
+
+function asWarning(value: unknown): Warning | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  if (!("code" in value) || typeof value.code !== "string") return undefined;
+  if (!("message" in value) || typeof value.message !== "string") return undefined;
+  if (!("severity" in value) || !isWarningSeverity(value.severity)) return undefined;
+  if (!("scope" in value) || !isWarningScope(value.scope)) return undefined;
+  const warning: Warning = {
+    code: value.code,
+    message: value.message,
+    severity: value.severity,
+    scope: value.scope,
+  };
+  if ("sourcePath" in value && typeof value.sourcePath === "string") {
+    warning.sourcePath = value.sourcePath;
+  }
+  if ("sessionId" in value && typeof value.sessionId === "string") {
+    warning.sessionId = value.sessionId;
+  }
+  if ("line" in value && typeof value.line === "number" && Number.isFinite(value.line)) {
+    warning.line = value.line;
+  }
+  if ("cause" in value && typeof value.cause === "string") warning.cause = value.cause;
+  return warning;
+}
+
+function parseWarnings(raw: unknown): Warning[] {
+  if (typeof raw !== "string" || raw.length === 0) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const warnings: Warning[] = [];
+    for (const item of parsed) {
+      const warning = asWarning(item);
+      if (warning) warnings.push(warning);
+    }
+    return warnings;
+  } catch {
+    return [];
+  }
+}
+
 function asString(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
@@ -69,6 +125,7 @@ function sessionFromRow(
   const hasLineage = Boolean(
     lineage.parentSessionId || lineage.agentId || lineage.agentType || lineage.originator,
   );
+  const warnings = parseWarnings(row.warnings_json);
 
   return {
     schemaVersion: SESSION_SCHEMA_VERSION,
@@ -89,6 +146,7 @@ function sessionFromRow(
     turns,
     lineage: hasLineage ? lineage : undefined,
     branch: asString(row.branch),
+    ...(warnings.length > 0 ? { warnings } : {}),
     fidelity: {
       completeness:
         row.completeness === "partial" || row.completeness === "metadata-only"
@@ -234,7 +292,7 @@ export async function queryIndex(
       if (!matchesDateRange(session.startedAt, session.endedAt, opts.since, opts.until)) continue;
       if (opts.toolFilter?.length && !opts.toolFilter.includes(session.tool)) continue;
       if (opts.queryTextFilter !== false && !matchesSessionTextQuery(session, parsed)) continue;
-      results.push({ session, warnings: [] });
+      results.push({ session, warnings: session.warnings ?? [] });
     }
     db.close();
     return { sessions: results, stale };

@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   cost_usd REAL,
   usage_json TEXT,
   completeness TEXT NOT NULL,
+  warnings_json TEXT,
   FOREIGN KEY(source_id) REFERENCES sources(id) ON DELETE CASCADE
 );
 

@@ -20,6 +20,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Index reads treat missing new log files and schema rebuilds as stale, then `list` / `search` / `stats` scan live logs instead of returning a partial cache.
 - Degraded JSONL head scans drop the leftover bytes at the head-range cut instead of emitting a truncated record.
+- Index refresh treats Commander's empty `--project` list as unfiltered, so vanished log files are dropped from the cache.
+- Refreshing a changed session deletes its FTS rows before rewrite, so `transcript_fts` does not keep a growing copy of every transcript.
+- Indexed `list` / `search` / `stats` return stored parse warnings instead of an empty array. Existing caches rebuild on open (schema 2) and live-scan until `logsesh index build`.
 
 ### Changed
 

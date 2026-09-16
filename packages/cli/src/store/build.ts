@@ -35,14 +35,49 @@ function turnText(session: Session, index: number): string {
     .join("\n");
 }
 
+function hasProjectFilter(projectFilter: PipelineOptions["projectFilter"]): boolean {
+  if (typeof projectFilter === "string") return projectFilter.length > 0;
+  return Boolean(projectFilter?.length);
+}
+
+function isScopedRefresh(opts: IndexBuildOptions): boolean {
+  return Boolean(
+    opts.toolFilter?.length ||
+    hasProjectFilter(opts.projectFilter) ||
+    opts.query ||
+    opts.since ||
+    opts.until,
+  );
+}
+
+function deleteFtsRows(db: SqliteDatabase, sourcePath: string): void {
+  try {
+    db.prepare(
+      `DELETE FROM transcript_fts WHERE session_key IN (
+         SELECT sessions.session_key
+         FROM sessions JOIN sources ON sources.id = sessions.source_id
+         WHERE sources.source_path = ?
+       )`,
+    ).run(sourcePath);
+  } catch {
+    // FTS table may not exist
+  }
+}
+
+function deleteIndexedSource(db: SqliteDatabase, sourcePath: string, fts: boolean): void {
+  if (fts) deleteFtsRows(db, sourcePath);
+  db.prepare("DELETE FROM sources WHERE source_path = ?").run(sourcePath);
+}
+
 function insertSession(db: SqliteDatabase, sourceId: number, session: Session, fts: boolean): void {
   const key = sessionKey(session.tool, session.source.sourcePath, session.id);
   db.prepare(
     `INSERT INTO sessions (
       session_key, source_id, session_id, tool, project_path, branch, model,
       parent_session_id, agent_id, agent_type, originator, depth,
-      started_at, ended_at, turn_count, total_tokens, cost_usd, usage_json, completeness
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      started_at, ended_at, turn_count, total_tokens, cost_usd, usage_json, completeness,
+      warnings_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     key,
     sourceId,
@@ -63,6 +98,7 @@ function insertSession(db: SqliteDatabase, sourceId: number, session: Session, f
     session.costUsd,
     session.usage ? JSON.stringify(session.usage) : null,
     session.fidelity?.completeness ?? "complete",
+    session.warnings && session.warnings.length > 0 ? JSON.stringify(session.warnings) : null,
   );
 
   for (const turn of session.turns) {
@@ -199,7 +235,7 @@ export async function buildIndex(opts: IndexBuildOptions = {}): Promise<IndexBui
 
       try {
         db.exec("BEGIN");
-        db.prepare("DELETE FROM sources WHERE source_path = ?").run(sourcePath);
+        deleteIndexedSource(db, sourcePath, fts);
         db.prepare(
           `INSERT INTO sources (
             tool, source_path, lifecycle, size_bytes, mtime_ms, fingerprint,
@@ -243,16 +279,9 @@ export async function buildIndex(opts: IndexBuildOptions = {}): Promise<IndexBui
       }
     }
 
-    for (const path of existing.keys()) {
-      if (
-        !seenPaths.has(path) &&
-        !opts.toolFilter?.length &&
-        !opts.projectFilter &&
-        !opts.query &&
-        !opts.since &&
-        !opts.until
-      ) {
-        db.prepare("DELETE FROM sources WHERE source_path = ?").run(path);
+    if (!isScopedRefresh(opts)) {
+      for (const path of existing.keys()) {
+        if (!seenPaths.has(path)) deleteIndexedSource(db, path, fts);
       }
     }
 

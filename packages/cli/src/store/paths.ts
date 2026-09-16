@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-export const INDEX_SCHEMA_VERSION = 1;
+export const INDEX_SCHEMA_VERSION = 2;
 export const INDEX_FILENAME = "index-v1.sqlite";
 
 export function defaultIndexPath(): string {
