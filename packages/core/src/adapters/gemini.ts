@@ -1,4 +1,5 @@
-import { ParseContext } from "../parse-context.js";
+import { ParseContext, scanSource } from "../parse-context.js";
+import { SessionBuilder } from "../session-builder.js";
 import type {
   Adapter,
   DiscoverOptions,
@@ -7,53 +8,14 @@ import type {
   SessionFile,
   ToolName,
 } from "../types.js";
-import { sessionFileNameId } from "../util.js";
+import { parseJsonLine, sessionFileNameId } from "../util.js";
 import { detectRootAccess } from "../fs-walk.js";
 import { lstat, readdir } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { z } from "zod";
-
 import { ADAPTER_VERSIONS, DEFAULT_LOG_ROOT_SEGMENTS } from "../constants.js";
-
-const geminiLineSchema = z.object({
-  role: z.string().optional(),
-  timestamp: z.string().optional(),
-  model: z.string().optional(),
-  modelVersion: z.string().optional(),
-  parts: z
-    .array(
-      z.union([
-        z.object({ text: z.string().optional() }),
-        z.object({
-          functionCall: z
-            .object({
-              id: z.string().optional(),
-              name: z.string().optional(),
-              args: z.unknown().optional(),
-            })
-            .optional(),
-        }),
-        z.object({
-          functionResponse: z
-            .object({
-              id: z.string().optional(),
-              name: z.string().optional(),
-              response: z.unknown().optional(),
-            })
-            .optional(),
-        }),
-      ]),
-    )
-    .optional(),
-  usageMetadata: z
-    .object({
-      promptTokenCount: z.number().optional(),
-      candidatesTokenCount: z.number().optional(),
-      totalTokenCount: z.number().optional(),
-    })
-    .optional(),
-});
+import { classifyGeminiRecord } from "./gemini-schemas.js";
+import { applyGeminiEvent, createGeminiState, geminiMessageToBlocks } from "./gemini-reducer.js";
 
 function geminiRoot(opts: DiscoverOptions): string {
   return opts.roots?.gemini ?? join(homedir(), ...DEFAULT_LOG_ROOT_SEGMENTS.gemini);
@@ -63,15 +25,15 @@ export const geminiAdapter: Adapter = {
   tool: "gemini" as ToolName,
   adapterVersion: ADAPTER_VERSIONS.gemini,
   capabilities: {
-    discovery: "experimental",
-    transcript: "partial",
-    toolCalls: "partial",
+    discovery: "full",
+    transcript: "full",
+    toolCalls: "full",
     usage: "partial",
     model: "partial",
-    reasoning: "none",
+    reasoning: "partial",
     notes: [
-      "Gemini CLI log format is experimental and may change.",
-      "Usage metadata is captured when present; token totals may be incomplete.",
+      "Leftover Gemini CLI JSONL ($set / $rewindTo). Current Google CLI sessions are Antigravity, not this layout.",
+      "Legacy role/parts records are still recognized.",
     ],
   },
 
@@ -127,71 +89,68 @@ export const geminiAdapter: Adapter = {
   },
 
   async *parse(file: SessionFile, opts: ParseOptions): AsyncIterable<Session> {
-    const ctx = new ParseContext({
+    const fallbackId = sessionFileNameId(file.path);
+    const builder = new SessionBuilder({
       tool: "gemini",
       adapterVersion: ADAPTER_VERSIONS.gemini,
-      file,
-      opts,
-      sessionId: sessionFileNameId(file.path),
-      logFormatVersion: "experimental",
+      sourcePath: file.path,
+      sessionId: fallbackId,
+      logFormatVersion: "gemini-cli-jsonl",
+      maxTurnChars: opts.maxTurnChars,
+      maxToolOutputChars: opts.maxToolOutputChars,
     });
-    let stepCounter = 0;
+    const ctx = new ParseContext({ tool: "gemini", sourcePath: file.path, sessionId: fallbackId });
+    const state = createGeminiState();
 
-    for await (const rec of ctx.records()) {
-      const record = ctx.decode(rec, geminiLineSchema, "Gemini record");
-      if (!record) continue;
-
-      const model = record.model ?? record.modelVersion;
-      if (model) ctx.setModel(model);
-
-      const role = record.role;
-      if (role !== "user" && role !== "model") continue;
-
-      const blocks: Array<
-        | { kind: "text"; text: string }
-        | { kind: "tool_use"; id: string; name: string; input?: unknown }
-      > = [];
-
-      for (const part of record.parts ?? []) {
-        if ("text" in part && part.text) {
-          blocks.push({ kind: "text", text: part.text });
-        }
-        if ("functionCall" in part && part.functionCall) {
-          const fc = part.functionCall;
-          const id = fc.id ?? `call-${rec.seq}`;
-          blocks.push({ kind: "tool_use", id, name: fc.name ?? "unknown", input: fc.args });
-          stepCounter++;
-        }
-        if ("functionResponse" in part && part.functionResponse) {
-          const fr = part.functionResponse;
-          ctx.addToolResult({
-            toolUseId: fr.id ?? `call-${rec.seq}`,
-            sourceLine: rec.seq,
-            output: fr.response,
-            status: "success",
-          });
-        }
+    await scanSource(file.path, ctx, opts, (line, lineNumber) => {
+      const parsed = parseJsonLine(line, lineNumber, file.path);
+      if (!parsed.ok) {
+        ctx.malformed(parsed.error, lineNumber);
+        return;
       }
+      const event = classifyGeminiRecord(parsed.value);
+      const result = applyGeminiEvent(state, event, lineNumber);
+      if (result === "recognized") ctx.recognized(event.kind);
+      else if (result === "ignored") ctx.ignoredKnown(event.kind);
+      else ctx.unknown(event.kind === "unknown" ? event.type : event.kind);
+    });
 
-      if (blocks.length > 0) {
-        stepCounter++;
-        ctx.addRecord({
-          role: role === "model" ? "assistant" : "user",
-          fragmentGroupId: `${role}-${stepCounter}`,
-          sourceLine: rec.seq,
-          blocks,
-          timestamp: record.timestamp,
-          usage: record.usageMetadata
-            ? {
-                inputTokens: record.usageMetadata.promptTokenCount,
-                outputTokens: record.usageMetadata.candidatesTokenCount,
-                totalTokens: record.usageMetadata.totalTokenCount,
-              }
-            : undefined,
-        });
-      }
+    if (state.sessionId) {
+      builder.setSessionId(state.sessionId);
+      ctx.setSessionId(state.sessionId);
+    }
+    if (state.model) builder.setModel(state.model);
+    if (state.kind === "subagent") {
+      builder.setLineage({ agentType: "subagent" });
     }
 
-    yield ctx.finish();
+    let step = 0;
+    for (const message of state.messages) {
+      step += 1;
+      const mapped = geminiMessageToBlocks(message);
+      if (mapped.blocks.length > 0) {
+        builder.addRecord({
+          role: mapped.role,
+          fragmentGroupId: `${message.type}-${message.id}-${step}`,
+          sourceLine: step,
+          blocks: mapped.blocks,
+          timestamp: message.timestamp ?? state.startTime,
+          usage: mapped.usage,
+        });
+      }
+      for (const result of mapped.toolResults) {
+        builder.addToolResult({
+          toolUseId: result.id,
+          sourceLine: step,
+          output: result.output,
+          status: result.status,
+        });
+      }
+      if (message.model) builder.setModel(message.model);
+    }
+
+    for (const warning of ctx.drainWarnings()) builder.addWarning(warning);
+    builder.setFidelity(ctx.finalize());
+    yield builder.finalize();
   },
 };

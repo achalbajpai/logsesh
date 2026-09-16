@@ -36,7 +36,8 @@
               "parse",
               "export",
               "package",
-              "pricing"
+              "pricing",
+              "index"
             ]
           },
           "sessionId": {

@@ -9,6 +9,8 @@ export interface SharedCommandOptions {
   color?: boolean;
   estimateCost?: boolean;
   maxFileBytes?: number;
+  largeFiles?: string;
+  index?: boolean;
   maxTurnChars?: number;
   maxToolOutputChars?: number;
   roots?: string[];

@@ -1,7 +1,14 @@
-import { KNOWN_QUERY_FIELDS, QUERY_FIELD_PATTERN } from "./constants.js";
+import { KNOWN_QUERY_FIELDS, QUERY_FIELD_PATTERN, VALID_TOOLS } from "./constants.js";
+import type { ToolName } from "./types.js";
 
-interface QueryFields {
+export interface QueryFields {
   project?: string[];
+  tool?: string[];
+  model?: string[];
+  agent?: string[];
+  parent?: string[];
+  branch?: string[];
+  toolcall?: string[];
 }
 
 export interface ParsedQuery {
@@ -10,6 +17,13 @@ export interface ParsedQuery {
   operator: "AND" | "OR";
   fields: QueryFields;
 }
+
+function pushField(fields: QueryFields, key: keyof QueryFields, value: string): void {
+  const list = fields[key] ?? [];
+  list.push(value);
+  fields[key] = list;
+}
+
 export function parseQuery(input: string): ParsedQuery {
   const trimmed = input.trim();
   if (!trimmed) return { terms: [], phrases: [], operator: "OR", fields: {} };
@@ -22,10 +36,13 @@ export function parseQuery(input: string): ParsedQuery {
     const key = match[1]!.toLowerCase();
     if (!KNOWN_QUERY_FIELDS.has(key)) continue;
     const value = match[3] ?? match[4] ?? "";
-    if (key === "project") {
-      fields.project = fields.project ?? [];
-      fields.project.push(value);
-    }
+    if (key === "project") pushField(fields, "project", value);
+    else if (key === "tool") pushField(fields, "tool", value);
+    else if (key === "model") pushField(fields, "model", value);
+    else if (key === "agent") pushField(fields, "agent", value);
+    else if (key === "parent") pushField(fields, "parent", value);
+    else if (key === "branch") pushField(fields, "branch", value);
+    else if (key === "toolcall") pushField(fields, "toolcall", value);
     fieldSpans.push({ start: match.index, end: match.index + match[0].length });
   }
 
@@ -76,4 +93,20 @@ export function matchesQuery(text: string, query: ParsedQuery, caseSensitive = f
     return parts.every((part) => haystack.includes(part));
   }
   return parts.some((part) => haystack.includes(part));
+}
+
+export function parseToolField(value: string): ToolName | undefined {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "claude" || normalized === "claude-code") return "claude-code";
+  if (
+    normalized === "agy" ||
+    normalized === "antigravity" ||
+    normalized === "antigravity-cli" ||
+    normalized === "anti-gravity"
+  ) {
+    return "antigravity";
+  }
+  if (normalized === "gemini" || normalized === "gemini-cli") return "gemini";
+  if (VALID_TOOLS.has(normalized as ToolName)) return normalized as ToolName;
+  return undefined;
 }

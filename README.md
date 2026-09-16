@@ -2,7 +2,7 @@
 
 Local-first CLI for AI coding-agent session logs.
 
-Search past work, inspect usage, estimate cost, and export sessions from Claude Code, Codex, and Gemini CLI logs. No telemetry. No runtime network calls.
+Search past work, inspect usage, estimate cost, and export sessions from Claude Code, Codex, and Antigravity CLI logs. No telemetry. No runtime network calls.
 
 ```bash
 npm install -g logsesh
@@ -37,11 +37,15 @@ logsesh export --format markdown --since 30d --out sessions.md
 
 | command | purpose |
 | --- | --- |
-| `doctor` | check log access, adapters, export defaults, and pricing data |
+| `doctor` | check log access, adapters, format health, and pricing data |
 | `list` | show matching sessions |
 | `search` | find transcript text with snippets |
 | `stats` | summarize activity, tokens, and cost |
 | `export` | write JSON, JSONL, Markdown, or CSV |
+| `index build` | build the optional local SQLite search index |
+| `index status` | show index health |
+| `index clear` | delete the local index |
+| `index path` | print the index database path |
 
 Run `logsesh <command> --help` for all options.
 
@@ -65,9 +69,17 @@ The same query syntax works across `search`, `list`, `stats`, and `export`.
 | `auth AND middleware` | require both terms |
 | `"rate limit"` | exact phrase |
 | `project:myapp` | match project directory name or path segment |
+| `tool:codex` | match a tool |
+| `model:gpt-5.6` | match a model id |
+| `agent:Explore` | match agent/subagent id or type |
+| `parent:session-id` | match parent session id |
+| `branch:feat/x` | match git branch |
+| `toolcall:Bash` | match a tool-call name |
 | `project:myapp auth` | project filter plus text search |
 
 `--project myapp` is shorthand for `project:myapp`.
+
+`list`, `search`, and `stats` use a local SQLite index when one exists. `--no-index` and `--roots` always scan source files. `--large-files auto|degraded|full` controls files over 512 MiB; pass `--max-file-bytes` to restore the old skip-the-file cap.
 
 ## Safety
 
@@ -87,9 +99,10 @@ Summary-only CSV keeps path anonymization on by default. Pass `--redact` to appl
 
 | tool | default location |
 | --- | --- |
-| Claude Code | `~/.claude/projects/*/*.jsonl` |
-| Codex | `~/.codex/sessions/**/rollout-*.jsonl` |
-| Gemini CLI | experimental adapter |
+| Claude Code | `~/.claude/projects/*/*.jsonl` and `<sessionId>/subagents/agent-*.jsonl` |
+| Codex | `~/.codex/sessions/**/rollout-*.jsonl` and `~/.codex/archived_sessions/**` |
+| Antigravity CLI | `~/.gemini/antigravity-cli/brain/<id>/.system_generated/logs/transcript_full.jsonl`, `conversations/<id>.db`, plus `~/.gemini/antigravity` and `~/.gemini/antigravity-ide`. Other ACP stores: `--roots antigravity:<path>` |
+| Gemini CLI (legacy) | `~/.gemini/tmp/*/chats/session-*.jsonl` |
 
 Override discovery with `--roots tool:path` and repeat it for multiple roots.
 

@@ -70,6 +70,9 @@ export function searchSession(
       timestamp: session.startedAt,
       snippets: [sessionPreviewSnippet(session, opts)],
       totalHits: 1,
+      agentId: session.lineage?.agentId,
+      parentSessionId: session.lineage?.parentSessionId,
+      completeness: session.fidelity?.completeness,
     };
   }
 
@@ -101,6 +104,9 @@ export function searchSession(
     timestamp: session.startedAt,
     snippets,
     totalHits,
+    agentId: session.lineage?.agentId,
+    parentSessionId: session.lineage?.parentSessionId,
+    completeness: session.fidelity?.completeness,
   };
 }
 

@@ -22,6 +22,7 @@
             "enum": [
               "claude-code",
               "codex",
+              "antigravity",
               "gemini"
             ]
           },
@@ -39,6 +40,20 @@
           },
           "totalHits": {
             "type": "number"
+          },
+          "agentId": {
+            "type": "string"
+          },
+          "parentSessionId": {
+            "type": "string"
+          },
+          "completeness": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "partial",
+              "metadata-only"
+            ]
           }
         },
         "required": [
@@ -76,7 +91,8 @@
               "parse",
               "export",
               "package",
-              "pricing"
+              "pricing",
+              "index"
             ]
           },
           "sessionId": {

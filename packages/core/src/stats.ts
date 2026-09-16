@@ -50,17 +50,27 @@ export class StatsAggregator {
   unpricedTokens = 0;
   byTool: StatsReport["byTool"] = {};
   byProject: StatsReport["byProject"] = {};
+  byModel: NonNullable<StatsReport["byModel"]> = {};
   dayCounts = new Map<string, { sessions: number; turns: number; tokens: number }>();
   tokenBreakdown = emptyTokenBreakdown();
+  parentSessionCount = 0;
+  subagentSessionCount = 0;
+  partialSessionCount = 0;
 
   add(session: Session): void {
     this.sessionCount++;
     this.turnCount += session.turns.length;
+    const partial =
+      session.fidelity?.completeness === "partial" ||
+      session.fidelity?.completeness === "metadata-only";
+    if (partial) this.partialSessionCount++;
+    if (session.lineage?.parentSessionId) this.subagentSessionCount++;
+    else this.parentSessionCount++;
 
-    const tokens = sessionTokens(session);
+    const tokens = partial ? 0 : sessionTokens(session);
     this.totalTokens += tokens;
 
-    if (session.usage) {
+    if (!partial && session.usage) {
       let sessionObserved = false;
       for (const [category, field] of Object.entries(TOKEN_CATEGORY_FIELDS) as Array<
         [keyof typeof TOKEN_CATEGORY_FIELDS, keyof Usage]
@@ -76,30 +86,39 @@ export class StatsAggregator {
       }
     }
 
-    if (session.costUsd !== null) {
+    if (!partial && session.costUsd !== null) {
       this.loggedCostUsd += session.costUsd;
       this.loggedSessionCount++;
-    } else if (this.useEstimates && typeof session.estimate?.costUsd === "number") {
+    } else if (!partial && this.useEstimates && typeof session.estimate?.costUsd === "number") {
       this.estimatedCostUsd += session.estimate.costUsd;
       this.estimatedSessionCount++;
-    } else {
+    } else if (!partial) {
       this.unpricedSessionCount++;
       this.unpricedTokens += tokens;
     }
 
     const tool = session.tool;
-    this.byTool[tool] ??= { sessions: 0, turns: 0, tokens: 0 };
-    this.byTool[tool].sessions++;
-    this.byTool[tool].turns += session.turns.length;
-    this.byTool[tool].tokens += tokens;
+    const toolBucket = this.byTool[tool] ?? { sessions: 0, turns: 0, tokens: 0 };
+    toolBucket.sessions++;
+    toolBucket.turns += session.turns.length;
+    toolBucket.tokens += tokens;
+    this.byTool[tool] = toolBucket;
 
     const project = session.projectPath
       ? anonymizePath(session.projectPath)
       : UNKNOWN_PROJECT_LABEL;
-    this.byProject[project] ??= { sessions: 0, turns: 0, tokens: 0 };
-    this.byProject[project].sessions++;
-    this.byProject[project].turns += session.turns.length;
-    this.byProject[project].tokens += tokens;
+    const projectBucket = this.byProject[project] ?? { sessions: 0, turns: 0, tokens: 0 };
+    projectBucket.sessions++;
+    projectBucket.turns += session.turns.length;
+    projectBucket.tokens += tokens;
+    this.byProject[project] = projectBucket;
+
+    const model = session.model?.trim() || UNKNOWN_PROJECT_LABEL;
+    const modelBucket = this.byModel[model] ?? { sessions: 0, turns: 0, tokens: 0 };
+    modelBucket.sessions++;
+    modelBucket.turns += session.turns.length;
+    modelBucket.tokens += tokens;
+    this.byModel[model] = modelBucket;
 
     const day = (session.startedAt ?? session.endedAt ?? "").slice(0, 10);
     if (day) {
@@ -139,9 +158,13 @@ export class StatsAggregator {
       unpricedTokens: this.unpricedTokens,
       byTool: this.byTool,
       byProject: this.byProject,
+      byModel: this.byModel,
       mostActiveDays,
       dailyBurn,
       tokenBreakdown: this.tokenBreakdown,
+      parentSessionCount: this.parentSessionCount,
+      subagentSessionCount: this.subagentSessionCount,
+      partialSessionCount: this.partialSessionCount,
     };
   }
 }

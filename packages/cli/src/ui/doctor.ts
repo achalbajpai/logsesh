@@ -14,7 +14,8 @@ function adapterStatus(tool: DoctorToolReport): { level: StatusLevel; detail: st
   }
   if (tool.candidateFiles > 0) {
     const count = `${tool.candidateFilesCapped ? ">=" : ""}${tool.candidateFiles} log file(s)`;
-    return { level: "ok", detail: count };
+    const health = tool.formatHealth ? `, format ${tool.formatHealth}` : "";
+    return { level: "ok", detail: `${count}${health}` };
   }
   return { level: "warn", detail: "root readable, no log files found" };
 }
@@ -35,9 +36,11 @@ function hasLogFiles(report: DoctorReport): boolean {
 
 function nextAction(report: DoctorReport): string {
   if (hasLogFiles(report)) {
-    return "next: logsesh stats --since 7d --estimate-cost";
+    const drifted = report.tools.some((tool) => tool.formatHealth === "drifted");
+    if (drifted) return "next: inspect adapter drift with logsesh doctor --json";
+    return "next: logsesh index build, then logsesh stats --since 7d --estimate-cost";
   }
-  return "next: set --roots tool:path or install Claude Code / Codex / Gemini CLI";
+  return "next: set --roots tool:path or install Claude Code / Codex / Antigravity CLI";
 }
 
 function formatStatus(level: StatusLevel, detail: string, mode: RenderMode, theme: Theme): string {

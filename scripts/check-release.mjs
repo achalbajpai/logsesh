@@ -2,6 +2,11 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import {
+  changelogHasUnreleasedHeading,
+  changelogHasVersionHeading,
+  escapeRe,
+} from "./changelog-heading.mjs";
 
 const ROOT = join(import.meta.dirname, "..");
 const CORE_DIR = join(ROOT, "packages/core");
@@ -15,10 +20,6 @@ function fail(message) {
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
-}
-
-function escapeRe(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function parseReleaseTag(argv, envTag) {
@@ -95,10 +96,10 @@ if (corePkg.version !== cliPkg.version) {
 }
 
 const version = corePkg.version;
-const hasVersionHeading = new RegExp(`^## \\[${escapeRe(version)}\\]`, "m").test(changelog);
-const hasUnreleased = /^## \[.*Unreleased/m.test(changelog);
+const hasVersionHeading = changelogHasVersionHeading(changelog, version);
+const hasUnreleased = changelogHasUnreleasedHeading(changelog, version);
 if (!hasVersionHeading && !hasUnreleased) {
-  fail(`CHANGELOG.md has no heading for ${version} and no Unreleased section`);
+  fail(`CHANGELOG.md has no ## [${version}] heading (dated or Unreleased)`);
 }
 
 if (releaseTag) {

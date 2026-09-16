@@ -1,0 +1,4 @@
+{"timestamp":"2026-09-01T13:00:00.000Z","ordinal":0,"type":"session_meta","payload":{"id":"child-thread","cwd":"/tmp/project","model":"gpt-5.3-codex","thread_source":"subagent","parent_thread_id":"parent-thread","session_id":"parent-thread","originator":"Codex Desktop","source":{"subagent":{"thread_spawn":{"parent_thread_id":"parent-thread","depth":1,"agent_path":"/root/explorer","agent_nickname":"Explore"}}}}}
+{"timestamp":"2026-09-01T13:00:01.000Z","ordinal":1,"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Check the limiter"}]}}
+{"timestamp":"2026-09-01T13:00:02.000Z","ordinal":2,"type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Looking"}]}}
+{"timestamp":"2026-09-01T13:00:03.000Z","ordinal":3,"type":"token_usage_record","payload":{"usage":{"input_tokens":20,"output_tokens":5,"total_tokens":25}}}

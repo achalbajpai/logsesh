@@ -1,0 +1,2 @@
+{"sessionId":"parent-session","cwd":"/tmp/app","gitBranch":"feat/index","type":"user","timestamp":"2026-09-01T12:00:00.000Z","message":{"role":"user","content":"spawn explorer"}}
+{"sessionId":"parent-session","type":"assistant","timestamp":"2026-09-01T12:00:01.000Z","model":"claude-sonnet-4-6","message":{"id":"msg-1","role":"assistant","content":[{"type":"text","text":"spawning"}],"usage":{"input_tokens":8,"output_tokens":2}}}

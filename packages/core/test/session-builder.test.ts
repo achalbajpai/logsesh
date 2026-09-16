@@ -73,27 +73,4 @@ describe("sanitizeForExport", () => {
     expect(raw.id).toBe("s");
     expect(rawReasoning.id).toBe("s");
   });
-
-  it("keeps fidelity and lineage ids and strips warning paths", () => {
-    const session: Session = {
-      ...base,
-      lineage: { agentId: "agent-9", parentSessionId: "parent-1" },
-      fidelity: { completeness: "complete", recordsObserved: 2, recordsRecognized: 2 },
-      warnings: [
-        {
-          code: "malformed_line",
-          message: "Line 2 in /Users/secret/project/log.jsonl: bad json",
-          severity: "warn",
-          scope: "parse",
-          sourcePath: "/Users/secret/project/log.jsonl",
-          sessionId: "s",
-        },
-      ],
-    };
-    const out = sanitizeForExport(session);
-    expect(out.fidelity?.completeness).toBe("complete");
-    expect(out.lineage).toEqual({ agentId: "agent-9", parentSessionId: "parent-1" });
-    expect(out.warnings?.[0] && !("sourcePath" in out.warnings[0])).toBe(true);
-    expect(JSON.stringify(out.warnings)).not.toContain("/Users/secret");
-  });
 });

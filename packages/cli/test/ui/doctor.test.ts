@@ -117,7 +117,9 @@ describe("renderDoctor", () => {
     const pricingAt = lines.indexOf("Pricing table");
     expect(adaptersAt).toBeGreaterThan(-1);
     expect(pricingAt).toBeGreaterThan(adaptersAt);
-    expect(lines.at(-1)).toBe("next: logsesh stats --since 7d --estimate-cost");
+    expect(lines.at(-1)).toBe(
+      "next: logsesh index build, then logsesh stats --since 7d --estimate-cost",
+    );
   });
 
   it("suggests roots when no log files are found", () => {

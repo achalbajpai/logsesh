@@ -15,10 +15,27 @@ describe("inferToolFromPath", () => {
 
   it("detects claude project paths", () => {
     expect(inferToolFromPath("/Users/me/.claude/projects/-Users-me/foo.jsonl")).toBe("claude-code");
+    expect(inferToolFromPath("C:\\Users\\me\\.claude\\projects\\-Users-me\\foo.jsonl")).toBe(
+      "claude-code",
+    );
   });
 
   it("detects gemini chat paths", () => {
     expect(inferToolFromPath("/Users/me/.gemini/tmp/proj/chats/session-1.jsonl")).toBe("gemini");
+  });
+
+  it("detects antigravity transcript paths", () => {
+    expect(
+      inferToolFromPath(
+        "/Users/me/.gemini/antigravity-cli/brain/abc/.system_generated/logs/transcript_full.jsonl",
+      ),
+    ).toBe("antigravity");
+    expect(inferToolFromPath("/tmp/store/hash/antigravity-acp/conversations/id.db")).toBe(
+      "antigravity",
+    );
+    expect(
+      inferToolFromPath("/tmp/userdata/providers/antigravity/hash/conversations/id.db"),
+    ).toBeUndefined();
   });
 });
 

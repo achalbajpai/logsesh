@@ -2,7 +2,7 @@ import type { Command } from "commander";
 
 export function sharedOptions(cmd: Command): Command {
   return cmd
-    .option("--tool <tools>", "Comma-separated tools: claude-code,codex,gemini")
+    .option("--tool <tools>", "Comma-separated tools: claude-code,codex,antigravity,gemini")
     .option(
       "--project <name>",
       "Filter by project path or directory name (same as project:name in --query)",
@@ -21,6 +21,8 @@ export function sharedOptions(cmd: Command): Command {
     .option("--no-color", "Disable ANSI color")
     .option("--estimate-cost", "Show estimated cost (never replaces canonical costUsd)")
     .option("--max-file-bytes <n>", "Skip files larger than N bytes", parseInt)
+    .option("--large-files <mode>", "Large file handling: auto, degraded, or full")
+    .option("--no-index", "Ignore the local SQLite index and scan source files")
     .option("--max-turn-chars <n>", "Truncate turn text at N characters", parseInt)
     .option("--max-tool-output-chars <n>", "Truncate tool output at N characters", parseInt)
     .option("--roots <spec>", "Override log roots as tool:path (repeatable)", collect, []);

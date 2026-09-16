@@ -2,7 +2,7 @@
 
 Parser, normalization, search, export-safety, and cost-estimation library behind `logsesh`.
 
-Use it when you want to build your own local workflows on top of Claude Code, Codex, or Gemini CLI session logs.
+Use it when you want to build your own local workflows on top of Claude Code, Codex, or Antigravity CLI session logs.
 
 ## Install
 

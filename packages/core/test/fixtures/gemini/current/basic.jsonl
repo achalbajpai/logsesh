@@ -1,0 +1,5 @@
+{"sessionId":"gemini-session-1","projectHash":"abc123","startTime":"2026-09-01T10:00:00.000Z","lastUpdated":"2026-09-01T10:00:05.000Z","kind":"main"}
+{"id":"m1","timestamp":"2026-09-01T10:00:01.000Z","type":"user","content":[{"text":"List the files"}]}
+{"id":"m2","timestamp":"2026-09-01T10:00:02.000Z","type":"gemini","model":"gemini-3.8-flash","content":[{"text":"I will list them"}],"toolCalls":[{"id":"call-1","name":"list_directory","args":{"path":"."},"status":"success","result":[{"text":"a.ts"}]}]}
+{"$set":{"lastUpdated":"2026-09-01T10:00:03.000Z"}}
+{"id":"m3","timestamp":"2026-09-01T10:00:04.000Z","type":"gemini","content":[{"text":"Done"}],"tokens":{"input":11,"output":4,"total":15}}

@@ -80,23 +80,14 @@ export interface Warning {
   code: string;
   message: string;
   severity: "info" | "warn" | "error";
-  scope: "discovery" | "parse" | "export" | "package" | "pricing";
+  scope: "discovery" | "parse" | "export" | "package" | "pricing" | "index";
   sourcePath?: string;
   sessionId?: string;
   line?: number;
   cause?: string;
 }
 
-export interface Source {
-  tool: ToolName;
-  adapterVersion: string;
-  logFormatVersion?: string;
-  sourcePath: string;
-  lifecycle?: "active" | "archived";
-}
-
 export interface AgentLineage {
-  role?: "main" | "subagent";
   parentSessionId?: string;
   agentId?: string;
   agentType?: string;
@@ -109,9 +100,23 @@ export interface SourceFidelity {
   reason?: string;
   recordsObserved?: number;
   recordsRecognized?: number;
+  recordsIgnored?: number;
   recordsUnknown?: number;
   recordsMalformed?: number;
   recordsOversized?: number;
+  unknownRecordTypes?: string[];
+}
+
+export type UsageObservation =
+  | { mode: "delta"; usage: Usage }
+  | { mode: "cumulative"; usage: Usage };
+
+export interface Source {
+  tool: ToolName;
+  adapterVersion: string;
+  logFormatVersion?: string;
+  sourcePath: string;
+  lifecycle?: "active" | "archived";
 }
 
 export interface Session {
@@ -123,14 +128,14 @@ export interface Session {
   endedAt?: string;
   projectPath?: string;
   model?: string;
-  branch?: string;
-  lineage?: AgentLineage;
-  fidelity?: SourceFidelity;
   usage?: Usage;
   costUsd: number | null;
   estimate?: Estimate;
   turns: Turn[];
   warnings?: Warning[];
+  lineage?: AgentLineage;
+  branch?: string;
+  fidelity?: SourceFidelity;
 }
 
 export interface JsonExportEnvelope<T, W = PublicWarning> {
@@ -183,6 +188,9 @@ export interface SessionSummary {
   costUsd: number | null;
   estimate?: Estimate;
   sourcePath: string;
+  agentId?: string;
+  parentSessionId?: string;
+  completeness?: SourceFidelity["completeness"];
 }
 
 export interface SearchMatch {
@@ -192,6 +200,9 @@ export interface SearchMatch {
   timestamp?: string;
   snippets: string[];
   totalHits: number;
+  agentId?: string;
+  parentSessionId?: string;
+  completeness?: SourceFidelity["completeness"];
 }
 
 export interface DailyBurnEntry {
@@ -229,9 +240,13 @@ export interface StatsReport {
   unpricedTokens: number;
   byTool: Record<string, { sessions: number; turns: number; tokens: number }>;
   byProject: Record<string, { sessions: number; turns: number; tokens: number }>;
+  byModel?: Record<string, { sessions: number; turns: number; tokens: number }>;
   mostActiveDays: Array<{ date: string; sessions: number; turns: number }>;
   dailyBurn: DailyBurnEntry[];
   tokenBreakdown: TokenBreakdown;
+  parentSessionCount?: number;
+  subagentSessionCount?: number;
+  partialSessionCount?: number;
 }
 
 export interface ListEnvelope {
@@ -267,11 +282,13 @@ export interface SessionFile {
   tool: ToolName;
 }
 
+export type LargeFileMode = "auto" | "degraded" | "full";
+
 export interface ParseOptions {
-  /** @deprecated Explicit value keeps the old whole-file skip. There is no default skip at 200 MiB. */
+  /** @deprecated Explicit value keeps v0.2 skip-the-file behavior. */
   maxFileBytes?: number;
   maxRecordBytes?: number;
-  largeFileMode?: "auto" | "degraded" | "full";
+  largeFileMode?: LargeFileMode;
   maxTurnChars?: number;
   maxToolOutputChars?: number;
 }
@@ -350,4 +367,8 @@ export interface SessionBuilderOptions {
   logFormatVersion?: string;
   maxTurnChars?: number;
   maxToolOutputChars?: number;
+  lineage?: AgentLineage;
+  branch?: string;
+  fidelity?: SourceFidelity;
+  sourceLifecycle?: Source["lifecycle"];
 }

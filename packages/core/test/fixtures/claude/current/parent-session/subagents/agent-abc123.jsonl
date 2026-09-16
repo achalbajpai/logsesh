@@ -1,0 +1,2 @@
+{"agentId":"abc123","cwd":"/tmp/app","gitBranch":"feat/index","isSidechain":true,"sessionId":"parent-session","timestamp":"2026-09-01T12:00:02.000Z","type":"user","message":{"role":"user","content":"explore auth"}}
+{"agentId":"abc123","sessionId":"parent-session","timestamp":"2026-09-01T12:00:03.000Z","type":"assistant","model":"claude-sonnet-4-6","message":{"id":"msg-sub","role":"assistant","content":[{"type":"text","text":"found middleware"},{"type":"server_tool_use","id":"x"}],"usage":{"input_tokens":4,"output_tokens":3}}}

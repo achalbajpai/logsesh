@@ -6,18 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [0.3.0] - Unreleased
 
+### Added
+
+- Byte-capped JSONL reader with per-record limits, head/tail degraded scans, and `SourceFidelity` on every session.
+- Optional `lineage`, `branch`, and `source.lifecycle` on the public session schema. Claude subagent files and Codex child threads keep explicit parent/child metadata only.
+- Antigravity CLI / ACP adapter. Discovers `agy` JSONL transcripts and conversation databases under `~/.gemini`. Other ACP stores work with `--roots antigravity:<path>`. Gemini CLI `~/.gemini/tmp` remains as a legacy adapter.
+- Query fields `tool:`, `model:`, `agent:`, `parent:`, `branch:`, and `toolcall:`.
+- `logsesh index build|status|clear|path` — opt-in local SQLite cache with FTS when Node provides it. Search/list/stats use it when present; `--roots` and `--no-index` still scan files.
+- `doctor` samples real files and reports format health plus pricing staleness.
+- `--large-files auto|degraded|full`. The default path no longer skips every file over 200 MiB unless `--max-file-bytes` is set.
+
+### Fixed
+
+- Index reads treat missing new log files and schema rebuilds as stale, then `list` / `search` / `stats` scan live logs instead of returning a partial cache.
+- Degraded JSONL head scans drop the leftover bytes at the head-range cut instead of emitting a truncated record.
+
 ### Changed
 
 - Pin TypeScript 7.0.2 and tsdown 0.22.14. Package declarations come from `tsc --emitDeclarationOnly`; the TypeScript 5.7 emit alias is gone. tsdown stays on 0.22 so local Node 25 still runs (0.23 dropped it).
-- Add `pnpm check:release` for version alignment, changelog headings, schema drift, pricing, and packed tarball contents. It is part of `verify`. A version tag also requires a dated changelog heading and matching package versions.
+- Add `pnpm check:release` for version alignment, changelog headings, schema drift, pricing, and packed tarball contents. It is part of `verify`. The current package version needs its own `## [x.y.z]` heading, dated or `Unreleased`; an older Unreleased section is not enough. A version tag also requires a dated changelog heading and matching package versions.
 - Split CI into verify (ubuntu / Node 22, including check:release), a PR runtime matrix (ubuntu/macOS/Windows on Node 22, plus ubuntu on Node 24 and 26), and a single coverage job. Tag releases re-check `RELEASE_TAG` and smoke-test the published CLI without failing the job.
-- JSONL parse streams raw buffers with an 8 MiB per-record cap. Files over 512 MiB are read as 64 MiB head + tail. The old implicit 200 MiB whole-file skip is gone unless `maxFileBytes` is set explicitly.
-- Adapters finish sessions through `ParseContext`. `SessionBuilder` setters throw after `finalize()`. Codex usage is the last cumulative snapshot, not a sum of deltas.
+- Claude and Codex path parsing uses Node path APIs so Windows slugs and session ids match POSIX.
+- Adapter versions are 0.2.0. Antigravity is the current Google CLI; leftover Gemini CLI JSONL is still parsed.
+- Refresh bundled pricing to 2026-09-v7.
 
-### Added
+### Migration
 
-- Optional `fidelity`, `lineage`, `branch`, and `source.lifecycle` on `logsesh.session.v1`.
-- Parse diagnostics for oversized records, unknown record types, unknown content blocks, large-file gaps, duplicate event ordinals, and mixed usage shapes.
+JSON field meanings are unchanged. New session, search, stats, and doctor fields are optional. `maxFileBytes` still skips a file when you pass it; omitting it uses the new large-file policy. The index is never created unless you run `logsesh index build`.
 
 ## [0.2.3] - Unreleased
 

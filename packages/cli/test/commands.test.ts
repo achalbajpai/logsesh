@@ -126,7 +126,9 @@ describe("command handlers", () => {
     expect(out).toContain("sources:");
     expect(out).toContain("platform.openai.com/docs/pricing");
     expect(out).toContain("docs.anthropic.com/en/docs/about-claude/pricing");
-    expect(out).toContain("next: logsesh stats");
+    expect(out).toContain(
+      "next: logsesh index build, then logsesh stats --since 7d --estimate-cost",
+    );
   });
 
   it("runDoctorCommand rejects invalid roots", async () => {

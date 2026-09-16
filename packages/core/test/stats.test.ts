@@ -235,4 +235,29 @@ describe("StatsAggregator", () => {
     expect(envelope.stats.dailyBurn).toHaveLength(1);
     expect(envelope.stats.tokenBreakdown.observedSessionCount).toBe(1);
   });
+
+  it("excludes partial sessions from complete token totals", () => {
+    const agg = new StatsAggregator();
+    agg.add(
+      session({
+        id: "complete",
+        usage: { totalTokens: 100 },
+        fidelity: { completeness: "complete" },
+      }),
+    );
+    agg.add(
+      session({
+        id: "partial",
+        usage: { totalTokens: 9999 },
+        lineage: { parentSessionId: "complete" },
+        fidelity: { completeness: "partial", reason: "degraded" },
+      }),
+    );
+    const report = agg.report();
+    expect(report.sessionCount).toBe(2);
+    expect(report.totalTokens).toBe(100);
+    expect(report.partialSessionCount).toBe(1);
+    expect(report.subagentSessionCount).toBe(1);
+    expect(report.parentSessionCount).toBe(1);
+  });
 });

@@ -17,6 +17,7 @@
           "enum": [
             "claude-code",
             "codex",
+            "antigravity",
             "gemini"
           ]
         },
@@ -57,6 +58,7 @@
       "enum": [
         "claude-code",
         "codex",
+        "antigravity",
         "gemini"
       ]
     },
@@ -71,72 +73,6 @@
     },
     "model": {
       "type": "string"
-    },
-    "branch": {
-      "type": "string"
-    },
-    "lineage": {
-      "type": "object",
-      "properties": {
-        "role": {
-          "type": "string",
-          "enum": [
-            "main",
-            "subagent"
-          ]
-        },
-        "parentSessionId": {
-          "type": "string"
-        },
-        "agentId": {
-          "type": "string"
-        },
-        "agentType": {
-          "type": "string"
-        },
-        "originator": {
-          "type": "string"
-        },
-        "depth": {
-          "type": "number"
-        }
-      },
-      "additionalProperties": false
-    },
-    "fidelity": {
-      "type": "object",
-      "properties": {
-        "completeness": {
-          "type": "string",
-          "enum": [
-            "complete",
-            "partial",
-            "metadata-only"
-          ]
-        },
-        "reason": {
-          "type": "string"
-        },
-        "recordsObserved": {
-          "type": "number"
-        },
-        "recordsRecognized": {
-          "type": "number"
-        },
-        "recordsUnknown": {
-          "type": "number"
-        },
-        "recordsMalformed": {
-          "type": "number"
-        },
-        "recordsOversized": {
-          "type": "number"
-        }
-      },
-      "required": [
-        "completeness"
-      ],
-      "additionalProperties": false
     },
     "usage": {
       "type": "object",
@@ -463,7 +399,8 @@
               "parse",
               "export",
               "package",
-              "pricing"
+              "pricing",
+              "index"
             ]
           },
           "sourcePath": {
@@ -487,6 +424,74 @@
         ],
         "additionalProperties": false
       }
+    },
+    "lineage": {
+      "type": "object",
+      "properties": {
+        "parentSessionId": {
+          "type": "string"
+        },
+        "agentId": {
+          "type": "string"
+        },
+        "agentType": {
+          "type": "string"
+        },
+        "originator": {
+          "type": "string"
+        },
+        "depth": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "branch": {
+      "type": "string"
+    },
+    "fidelity": {
+      "type": "object",
+      "properties": {
+        "completeness": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "metadata-only"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "recordsObserved": {
+          "type": "number"
+        },
+        "recordsRecognized": {
+          "type": "number"
+        },
+        "recordsIgnored": {
+          "type": "number"
+        },
+        "recordsUnknown": {
+          "type": "number"
+        },
+        "recordsMalformed": {
+          "type": "number"
+        },
+        "recordsOversized": {
+          "type": "number"
+        },
+        "unknownRecordTypes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "completeness"
+      ],
+      "additionalProperties": false
     }
   },
   "required": [

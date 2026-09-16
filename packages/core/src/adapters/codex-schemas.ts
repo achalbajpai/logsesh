@@ -15,12 +15,22 @@ export const codexLineSchema = z.object({
   payload: z.record(z.string(), z.unknown()).optional(),
 });
 
-export const codexSessionMetaPayloadSchema = z.object({
-  id: z.string().optional(),
-  cwd: z.string().optional(),
-  model: z.string().optional(),
-  model_provider: z.string().optional(),
-});
+export const codexSessionMetaPayloadSchema = z
+  .object({
+    id: z.string().optional(),
+    cwd: z.string().optional(),
+    model: z.string().optional(),
+    model_provider: z.string().optional(),
+    session_id: z.string().optional(),
+    originator: z.string().optional(),
+    parent_thread_id: z.string().optional(),
+    forked_from_id: z.string().optional(),
+    thread_source: z.string().optional(),
+    agent_nickname: z.string().optional(),
+    agent_path: z.string().optional(),
+    source: z.unknown().optional(),
+  })
+  .passthrough();
 
 export const codexTurnContextPayloadSchema = z.object({
   model: z.string().optional(),
@@ -35,6 +45,17 @@ export const codexTokenCountPayloadSchema = z.object({
     .nullable()
     .optional(),
 });
+
+export const codexTokenUsageRecordPayloadSchema = z
+  .object({
+    usage: tokenUsageSchema.optional(),
+    input_tokens: z.number().optional(),
+    output_tokens: z.number().optional(),
+    cached_input_tokens: z.number().optional(),
+    reasoning_output_tokens: z.number().optional(),
+    total_tokens: z.number().optional(),
+  })
+  .passthrough();
 
 export const codexMessagePayloadSchema = z.object({
   type: z.literal("message"),

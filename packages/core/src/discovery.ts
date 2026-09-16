@@ -1,7 +1,13 @@
 import type { Adapter, DiscoverOptions, Session, SessionFile, ToolName, Warning } from "./types.js";
 import { MS_PER_DAY, MS_PER_HOUR, MS_PER_MINUTE } from "./constants.js";
 import { getEnabledAdapters } from "./adapters/index.js";
-import { type ParsedQuery, hasTextQuery, matchesQuery, parseQuery } from "./query.js";
+import {
+  type ParsedQuery,
+  hasTextQuery,
+  matchesQuery,
+  parseQuery,
+  parseToolField,
+} from "./query.js";
 
 export async function* discoverFiles(
   opts: DiscoverOptions,
@@ -138,6 +144,51 @@ export function matchesSessionFilters(
       matchesProject(session.projectPath, value),
     );
     if (!matchesProjectField) return false;
+  }
+  if (parsed.fields.tool?.length) {
+    const matchesToolField = parsed.fields.tool.some((value) => {
+      const tool = parseToolField(value);
+      return tool
+        ? session.tool === tool
+        : session.tool.toLowerCase().includes(value.toLowerCase());
+    });
+    if (!matchesToolField) return false;
+  }
+  if (parsed.fields.model?.length) {
+    const model = session.model?.toLowerCase() ?? "";
+    if (!parsed.fields.model.some((value) => model.includes(value.toLowerCase()))) return false;
+  }
+  if (parsed.fields.agent?.length) {
+    const haystack = [
+      session.lineage?.agentId,
+      session.lineage?.agentType,
+      session.lineage?.originator,
+    ]
+      .filter(Boolean)
+      .join("\n")
+      .toLowerCase();
+    if (!parsed.fields.agent.some((value) => haystack.includes(value.toLowerCase()))) {
+      return false;
+    }
+  }
+  if (parsed.fields.parent?.length) {
+    const parent = session.lineage?.parentSessionId ?? "";
+    if (!parsed.fields.parent.some((value) => parent.toLowerCase().includes(value.toLowerCase()))) {
+      return false;
+    }
+  }
+  if (parsed.fields.branch?.length) {
+    const branch = session.branch ?? "";
+    if (!parsed.fields.branch.some((value) => branch.toLowerCase().includes(value.toLowerCase()))) {
+      return false;
+    }
+  }
+  if (parsed.fields.toolcall?.length) {
+    const names = session.turns.flatMap((turn) => (turn.toolCalls ?? []).map((call) => call.name));
+    const haystack = names.join("\n").toLowerCase();
+    if (!parsed.fields.toolcall.some((value) => haystack.includes(value.toLowerCase()))) {
+      return false;
+    }
   }
   return true;
 }

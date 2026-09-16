@@ -1,0 +1,3 @@
+{"timestamp":"2026-07-01T16:57:10.000Z","type":"session_meta","payload":{"id":"tool-search-session","cwd":"/tmp/project"}}
+{"timestamp":"2026-07-01T16:57:11.000Z","type":"response_item","payload":{"type":"tool_search_call","id":"tsc-1","call_id":"call-search-1","arguments":{"query":"node_repl js","limit":10}}}
+{"timestamp":"2026-07-01T16:57:12.000Z","type":"response_item","payload":{"type":"tool_search_output","call_id":"call-search-1","tools":[{"name":"js"}]}}

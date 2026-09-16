@@ -3,7 +3,7 @@ import { anonymizePath } from "./util.js";
 
 export function sessionToSummary(session: Session, opts?: SanitizeOptions): SessionSummary {
   const rawPaths = opts?.rawPaths ?? false;
-  const home = process.env.HOME ?? "";
+  const home = process.env.HOME ?? process.env.USERPROFILE ?? "";
   const projectPath = session.projectPath
     ? rawPaths
       ? session.projectPath
@@ -24,6 +24,9 @@ export function sessionToSummary(session: Session, opts?: SanitizeOptions): Sess
     costUsd: session.costUsd,
     estimate: session.estimate,
     sourcePath,
+    agentId: session.lineage?.agentId,
+    parentSessionId: session.lineage?.parentSessionId,
+    completeness: session.fidelity?.completeness,
   };
 }
 
