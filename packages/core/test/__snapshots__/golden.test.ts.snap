@@ -4,6 +4,14 @@ exports[`golden normalization model > 1. human user text turn 1`] = `
 {
   "costUsd": null,
   "endedAt": undefined,
+  "fidelity": {
+    "completeness": "complete",
+    "recordsMalformed": 0,
+    "recordsObserved": 0,
+    "recordsOversized": 0,
+    "recordsRecognized": 1,
+    "recordsUnknown": 0,
+  },
   "id": "golden",
   "model": undefined,
   "projectPath": undefined,
@@ -40,6 +48,14 @@ exports[`golden normalization model > 2. assistant text turn 1`] = `
 {
   "costUsd": null,
   "endedAt": undefined,
+  "fidelity": {
+    "completeness": "complete",
+    "recordsMalformed": 0,
+    "recordsObserved": 0,
+    "recordsOversized": 0,
+    "recordsRecognized": 1,
+    "recordsUnknown": 0,
+  },
   "id": "golden",
   "model": undefined,
   "projectPath": undefined,
@@ -76,6 +92,14 @@ exports[`golden normalization model > 3. assistant tool-call-only turn 1`] = `
 {
   "costUsd": null,
   "endedAt": undefined,
+  "fidelity": {
+    "completeness": "complete",
+    "recordsMalformed": 0,
+    "recordsObserved": 0,
+    "recordsOversized": 0,
+    "recordsRecognized": 1,
+    "recordsUnknown": 0,
+  },
   "id": "golden",
   "model": undefined,
   "projectPath": undefined,
@@ -124,6 +148,14 @@ exports[`golden normalization model > 4. assistant text + tool calls 1`] = `
 {
   "costUsd": null,
   "endedAt": undefined,
+  "fidelity": {
+    "completeness": "complete",
+    "recordsMalformed": 0,
+    "recordsObserved": 0,
+    "recordsOversized": 0,
+    "recordsRecognized": 1,
+    "recordsUnknown": 0,
+  },
   "id": "golden",
   "model": undefined,
   "projectPath": undefined,
@@ -172,6 +204,14 @@ exports[`golden normalization model > 5. tool result paired by id 1`] = `
 {
   "costUsd": null,
   "endedAt": undefined,
+  "fidelity": {
+    "completeness": "complete",
+    "recordsMalformed": 0,
+    "recordsObserved": 0,
+    "recordsOversized": 0,
+    "recordsRecognized": 2,
+    "recordsUnknown": 0,
+  },
   "id": "golden",
   "model": undefined,
   "projectPath": undefined,
@@ -232,6 +272,14 @@ exports[`golden normalization model > 6. skipped system role becomes warning via
 {
   "costUsd": null,
   "endedAt": undefined,
+  "fidelity": {
+    "completeness": "complete",
+    "recordsMalformed": 0,
+    "recordsObserved": 0,
+    "recordsOversized": 0,
+    "recordsRecognized": 1,
+    "recordsUnknown": 0,
+  },
   "id": "golden",
   "model": undefined,
   "projectPath": undefined,
@@ -265,6 +313,7 @@ exports[`golden normalization model > 6. skipped system role becomes warning via
       "code": "skipped_role",
       "message": "Skipped system message",
       "scope": "parse",
+      "sessionId": "golden",
       "severity": "info",
     },
   ],
@@ -275,6 +324,14 @@ exports[`golden normalization model > 7. unmatched tool result warns 1`] = `
 {
   "costUsd": null,
   "endedAt": undefined,
+  "fidelity": {
+    "completeness": "complete",
+    "recordsMalformed": 0,
+    "recordsObserved": 0,
+    "recordsOversized": 0,
+    "recordsRecognized": 1,
+    "recordsUnknown": 0,
+  },
   "id": "golden",
   "model": undefined,
   "projectPath": undefined,
